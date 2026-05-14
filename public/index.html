@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Дневник самочувствия</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="masthead">
+        <div>
+          <p class="eyebrow">Личная аналитика</p>
+          <h1>Дневник самочувствия</h1>
+        </div>
+        <button id="reportButton" type="button">Сформировать отчет</button>
+      </header>
+
+      <section class="summary" aria-label="Средние показатели">
+        <article class="metric">
+          <span>Энергия</span>
+          <strong id="energy">-</strong>
+        </article>
+        <article class="metric">
+          <span>Радость</span>
+          <strong id="joy">-</strong>
+        </article>
+        <article class="metric">
+          <span>Интерес</span>
+          <strong id="interest">-</strong>
+        </article>
+        <article class="metric">
+          <span>Индекс дня</span>
+          <strong id="dayIndex">-</strong>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <div class="panel chart-panel">
+          <div class="panel-title">
+            <h2>Динамика</h2>
+            <span id="periodLabel">-</span>
+          </div>
+          <div id="chart" class="chart" aria-label="График индекса дня"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <h2>Сон и лекарства</h2>
+            <span>демо-данные</span>
+          </div>
+          <div id="medications" class="medications"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h2>Последние записи</h2>
+          <span id="rowCount">0 записей</span>
+        </div>
+        <div id="entries" class="entries"></div>
+      </section>
+
+      <section class="panel report-panel">
+        <div class="panel-title">
+          <h2>Отчет для врача</h2>
+          <span>без медицинских назначений</span>
+        </div>
+        <pre id="report">Нажми кнопку сверху, чтобы собрать краткий отчет.</pre>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
