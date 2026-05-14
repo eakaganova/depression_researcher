@@ -1,5 +1,4 @@
 const chartEl = document.querySelector("#chart");
-const entriesEl = document.querySelector("#entries");
 const medicationsEl = document.querySelector("#medications");
 const reportEl = document.querySelector("#report");
 const reportButton = document.querySelector("#reportButton");
@@ -18,8 +17,7 @@ function renderMetrics(rows, source) {
   document.querySelector("#joy").textContent = average(rows, "joy");
   document.querySelector("#interest").textContent = average(rows, "interest");
   document.querySelector("#dayIndex").textContent = average(rows, "dayIndex");
-  document.querySelector("#rowCount").textContent = `${rows.length} записей`;
-  document.querySelector("#sourceLabel").textContent = source;
+  document.querySelector("#sourceLabel").textContent = `${source} · ${rows.length} записей`;
   document.querySelector("#periodLabel").textContent = `${rows[0]?.date || "-"} - ${rows.at(-1)?.date || "-"}`;
 }
 
@@ -31,23 +29,6 @@ function renderChart(rows) {
         <div class="bar" style="--value: ${row.dayIndex}" data-sleep="${row.sleepProblem}" title="${row.date}: индекс ${row.dayIndex}">
           <span>${row.dayIndex}</span>
           <small>${row.date.slice(5)}</small>
-        </div>
-      `
-    )
-    .join("");
-}
-
-function renderEntries(rows) {
-  entriesEl.innerHTML = rows
-    .map(
-      (row) => `
-        <div class="entry">
-          <strong>${row.date}</strong>
-          <span>Энергия: ${row.energy}</span>
-          <span>Радость: ${row.joy}</span>
-          <span>Интерес: ${row.interest}</span>
-          <span>Индекс: ${row.dayIndex}</span>
-          <span class="pill ${row.sleepProblem ? "warning" : ""}">${row.sleepProblem ? "сон" : "ок"}</span>
         </div>
       `
     )
@@ -96,8 +77,8 @@ async function createReport(rows) {
 async function askQuestion(question) {
   const askButton = document.querySelector("#askButton");
   askButton.disabled = true;
-  askButton.textContent = "Думаю...";
-  answerEl.textContent = "Сверяю вопрос с таблицей...";
+  askButton.textContent = "Считаю...";
+  answerEl.textContent = "Считаю статистику и спрашиваю модель...";
 
   try {
     const response = await fetch("/api/ask", {
@@ -133,7 +114,6 @@ async function init() {
 
     renderMetrics(rows, data.source || "-");
     renderChart(rows);
-    renderEntries(rows);
     renderMedications(rows);
 
     reportButton.addEventListener("click", () => createReport(rows));
@@ -145,6 +125,7 @@ async function init() {
     });
   } catch (error) {
     reportEl.textContent = `Ошибка загрузки данных: ${error.message}`;
+    answerEl.textContent = "Данные не загрузились, поэтому вопросы пока недоступны.";
   }
 }
 

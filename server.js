@@ -69,7 +69,8 @@ app.post("/api/ask", async (request, response) => {
     }
 
     const entries = await loadEntries();
-    const answer = await askLlm(question, entries);
+    const analytics = buildAnalytics(entries);
+    const answer = await askLlm(question, analytics);
     response.json({ answer });
   } catch (error) {
     console.error("Failed to ask LLM:", error);
@@ -116,18 +117,13 @@ async function loadEntriesFromGoogleApi() {
 
 async function loadEntriesFromCsv(url) {
   const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`CSV returned ${response.status}`);
-  }
-
-  const csv = await response.text();
-  return rowsToEntries(parseCsv(csv));
+  if (!response.ok) throw new Error(`CSV returned ${response.status}`);
+  return rowsToEntries(parseCsv(await response.text()));
 }
 
 function rowsToEntries(rows) {
   const dataRows = rows.filter((row) => row.some((cell) => String(cell || "").trim()));
-  const withoutHeader = dataRows.slice(1);
-  return withoutHeader.map(rowToEntry).filter((entry) => entry.date);
+  return dataRows.slice(1).map(rowToEntry).filter((entry) => entry.date);
 }
 
 function rowToEntry(row) {
@@ -209,38 +205,198 @@ function average(entries, key) {
   return entries.reduce((total, entry) => total + Number(entry[key] || 0), 0) / entries.length;
 }
 
+function round(value, digits = 2) {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  return Number(value.toFixed(digits));
+}
+
 function formatAverage(entries, key) {
   return average(entries, key).toFixed(1);
 }
 
+function buildAnalytics(entries) {
+  const validEntries = entries.filter((entry) => Number.isFinite(entry.dayIndex));
+  const dayIndex = validEntries.map((entry) => entry.dayIndex);
+  const sortedByIndex = [...validEntries].sort((a, b) => a.dayIndex - b.dayIndex);
+  const sleepYes = validEntries.filter((entry) => entry.sleepProblem);
+  const sleepNo = validEntries.filter((entry) => !entry.sleepProblem);
+
+  return {
+    period: {
+      from: validEntries[0]?.date || null,
+      to: validEntries.at(-1)?.date || null,
+      days: validEntries.length
+    },
+    averages: {
+      energy: round(average(validEntries, "energy"), 2),
+      joy: round(average(validEntries, "joy"), 2),
+      interest: round(average(validEntries, "interest"), 2),
+      dayIndex: round(average(validEntries, "dayIndex"), 2)
+    },
+    spread: {
+      minDayIndex: round(Math.min(...dayIndex), 2),
+      maxDayIndex: round(Math.max(...dayIndex), 2),
+      standardDeviationDayIndex: round(standardDeviation(dayIndex), 2)
+    },
+    correlationsWithDayIndex: {
+      energy: correlationFor(validEntries, (entry) => entry.energy),
+      joy: correlationFor(validEntries, (entry) => entry.joy),
+      interest: correlationFor(validEntries, (entry) => entry.interest),
+      sleepProblem: correlationFor(validEntries, (entry) => (entry.sleepProblem ? 1 : 0)),
+      zoloft: correlationFor(validEntries, (entry) => entry.medications.zoloft),
+      zilaxera: correlationFor(validEntries, (entry) => entry.medications.zilaxera),
+      tritticoAtarax: correlationFor(validEntries, (entry) => entry.medications.tritticoAtarax),
+      lithiumMg: correlationFor(validEntries, (entry) => entry.medications.lithiumMg)
+    },
+    sleepComparison: {
+      daysWithSleepProblem: sleepYes.length,
+      daysWithoutSleepProblem: sleepNo.length,
+      averageDayIndexWithSleepProblem: sleepYes.length ? round(average(sleepYes, "dayIndex"), 2) : null,
+      averageDayIndexWithoutSleepProblem: sleepNo.length ? round(average(sleepNo, "dayIndex"), 2) : null,
+      difference: sleepYes.length && sleepNo.length ? round(average(sleepYes, "dayIndex") - average(sleepNo, "dayIndex"), 2) : null
+    },
+    trend: {
+      fullPeriodSlopePerDay: round(linearSlope(dayIndex), 4),
+      last14AverageDayIndex: round(average(validEntries.slice(-14), "dayIndex"), 2),
+      previous14AverageDayIndex: round(average(validEntries.slice(-28, -14), "dayIndex"), 2)
+    },
+    lowestDays: sortedByIndex.slice(0, 5).map(compactEntry),
+    highestDays: sortedByIndex.slice(-5).reverse().map(compactEntry),
+    medicationChanges: findMedicationChanges(validEntries),
+    importantEvents: validEntries
+      .filter((entry) => entry.importantEvent && entry.importantEvent.toLowerCase() !== "нет")
+      .map((entry) => ({ date: entry.date, event: entry.importantEvent, dayIndex: entry.dayIndex }))
+      .slice(-20)
+  };
+}
+
+function compactEntry(entry) {
+  return {
+    date: entry.date,
+    dayIndex: entry.dayIndex,
+    energy: entry.energy,
+    joy: entry.joy,
+    interest: entry.interest,
+    sleepProblem: entry.sleepProblem,
+    importantEvent: entry.importantEvent
+  };
+}
+
+function correlationFor(entries, getValue) {
+  const pairs = entries
+    .map((entry) => [getValue(entry), entry.dayIndex])
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+
+  if (pairs.length < 3) return { r: null, n: pairs.length, note: "Недостаточно точек" };
+  const xValues = pairs.map(([x]) => x);
+  if (new Set(xValues).size < 2) return { r: null, n: pairs.length, note: "Значение не менялось" };
+  return { r: round(pearson(pairs), 3), n: pairs.length };
+}
+
+function pearson(pairs) {
+  const n = pairs.length;
+  const meanX = pairs.reduce((sum, [x]) => sum + x, 0) / n;
+  const meanY = pairs.reduce((sum, [, y]) => sum + y, 0) / n;
+  let numerator = 0;
+  let xSum = 0;
+  let ySum = 0;
+
+  for (const [x, y] of pairs) {
+    const dx = x - meanX;
+    const dy = y - meanY;
+    numerator += dx * dy;
+    xSum += dx * dx;
+    ySum += dy * dy;
+  }
+
+  const denominator = Math.sqrt(xSum * ySum);
+  return denominator ? numerator / denominator : null;
+}
+
+function standardDeviation(values) {
+  if (!values.length) return 0;
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length);
+}
+
+function linearSlope(values) {
+  const pairs = values.map((value, index) => [index, value]);
+  return pearsonSlope(pairs);
+}
+
+function pearsonSlope(pairs) {
+  if (pairs.length < 2) return 0;
+  const n = pairs.length;
+  const meanX = pairs.reduce((sum, [x]) => sum + x, 0) / n;
+  const meanY = pairs.reduce((sum, [, y]) => sum + y, 0) / n;
+  const numerator = pairs.reduce((sum, [x, y]) => sum + (x - meanX) * (y - meanY), 0);
+  const denominator = pairs.reduce((sum, [x]) => sum + (x - meanX) ** 2, 0);
+  return denominator ? numerator / denominator : 0;
+}
+
+function findMedicationChanges(entries) {
+  const fields = [
+    ["zoloft", "Золофт"],
+    ["zilaxera", "Зилаксера"],
+    ["tritticoAtarax", "Триттико / Атаракс"],
+    ["lithiumMg", "Литий"]
+  ];
+  const changes = [];
+
+  for (let index = 1; index < entries.length; index += 1) {
+    const previous = entries[index - 1];
+    const current = entries[index];
+
+    for (const [field, label] of fields) {
+      const before = previous.medications[field];
+      const after = current.medications[field];
+      if (before !== after) {
+        changes.push({
+          date: current.date,
+          medication: label,
+          before,
+          after,
+          dayIndexOnChangeDay: current.dayIndex,
+          averageBefore7Days: round(average(entries.slice(Math.max(0, index - 7), index), "dayIndex"), 2),
+          averageAfter7Days: round(average(entries.slice(index, index + 7), "dayIndex"), 2)
+        });
+      }
+    }
+  }
+
+  return changes;
+}
+
 function buildLocalReport(entries) {
-  const sleepProblemDays = entries.filter((entry) => entry.sleepProblem);
-  const sortedByIndex = [...entries].sort((a, b) => a.dayIndex - b.dayIndex);
-  const worstDay = sortedByIndex[0];
-  const bestDay = sortedByIndex.at(-1);
+  const analytics = buildAnalytics(entries);
+  const sleep = analytics.sleepComparison;
 
   return [
-    `Период: ${entries[0]?.date || "-"} - ${entries.at(-1)?.date || "-"}`,
+    `Период: ${analytics.period.from || "-"} - ${analytics.period.to || "-"}`,
     "",
     "Краткое резюме:",
-    `Средний индекс дня: ${formatAverage(entries, "dayIndex")}. Энергия: ${formatAverage(entries, "energy")}, радость: ${formatAverage(entries, "joy")}, интерес: ${formatAverage(entries, "interest")}.`,
+    `Средний индекс дня: ${analytics.averages.dayIndex}. Энергия: ${analytics.averages.energy}, радость: ${analytics.averages.joy}, интерес: ${analytics.averages.interest}.`,
     "",
     "Сон:",
-    `Проблемы со сном отмечены ${sleepProblemDays.length} раз(а).`,
-    sleepProblemDays.length ? `Дни с проблемами сна: ${sleepProblemDays.map((entry) => entry.date).join(", ")}.` : "В выбранном периоде проблем со сном не отмечено.",
+    `Проблемы со сном отмечены ${sleep.daysWithSleepProblem} раз(а).`,
+    sleep.averageDayIndexWithSleepProblem === null
+      ? "Недостаточно дней с проблемами сна для сравнения."
+      : `Средний индекс при проблемах со сном: ${sleep.averageDayIndexWithSleepProblem}; без проблем со сном: ${sleep.averageDayIndexWithoutSleepProblem}.`,
     "",
-    "Лучшие и худшие дни:",
-    bestDay ? `Лучший день по индексу: ${bestDay.date}, индекс ${bestDay.dayIndex}.` : "Недостаточно данных.",
-    worstDay ? `Самый сложный день по индексу: ${worstDay.date}, индекс ${worstDay.dayIndex}.` : "Недостаточно данных.",
-    "",
-    "Лекарства:",
-    buildMedicationSummary(entries),
+    "Корреляции с индексом дня:",
+    `Энергия: ${formatCorrelation(analytics.correlationsWithDayIndex.energy)}.`,
+    `Радость: ${formatCorrelation(analytics.correlationsWithDayIndex.joy)}.`,
+    `Интерес: ${formatCorrelation(analytics.correlationsWithDayIndex.interest)}.`,
     "",
     "Вопросы к врачу:",
-    "- Есть ли связь между сном и снижением индекса дня?",
-    "- Стоит ли отдельно отслеживать тревогу, раздражительность и побочные эффекты?",
-    "- Достаточно ли текущих метрик для оценки динамики лечения?"
+    "Есть ли смысл отдельно отслеживать тревогу, раздражительность, сон в часах и побочные эффекты?",
+    "Какие изменения самочувствия важнее всего приносить на прием?"
   ].join("\n");
+}
+
+function formatCorrelation(result) {
+  if (result.r === null) return result.note || "нельзя посчитать";
+  return `r=${result.r}, n=${result.n}`;
 }
 
 function buildMedicationSummary(entries) {
@@ -250,7 +406,7 @@ function buildMedicationSummary(entries) {
   return `Последняя запись: Золофт ${latest.zoloft}, Зилаксера ${latest.zilaxera}, Триттико / Атаракс ${latest.tritticoAtarax}, литий ${latest.lithiumMg} мг. Изменения дозировок стоит обсуждать только с врачом.`;
 }
 
-async function askLlm(question, entries) {
+async function askLlm(question, analytics) {
   const folder = process.env.YANDEX_CLOUD_FOLDER;
   const model = process.env.YANDEX_CLOUD_MODEL || "gpt-oss-120b/latest";
   const client = new OpenAI({
@@ -261,15 +417,15 @@ async function askLlm(question, entries) {
 
   const response = await client.responses.create({
     model: `gpt://${folder}/${model}`,
-    temperature: 0.3,
-    max_output_tokens: 700,
+    temperature: 0.2,
+    max_output_tokens: 900,
     instructions: [
-      "Ты помогаешь пользователю анализировать личный дневник самочувствия и приема лекарств.",
-      "Отвечай только на основе переданных данных.",
+      "Ты аналитик дневника самочувствия. Отвечай на основе рассчитанной статистики, а не пересказывай строки таблицы.",
+      "Если вопрос про связь факторов, обязательно используй корреляции r, размер выборки n, сравнение средних или тренд из analytics.",
+      "Не выводи JSON, Markdown-таблицы, заголовки с #, списки со звездочками и блоки кода.",
+      "Пиши обычным русским текстом, короткими абзацами. Допустимы строки вида '1. ...', '2. ...'.",
       "Не ставь диагнозы, не назначай лечение, не советуй менять дозировки.",
-      "Если данных недостаточно, прямо скажи об этом.",
-      "Формулируй осторожно: возможно, похоже, стоит обсудить с врачом.",
-      "Отвечай по-русски, кратко и структурно."
+      "Разделяй факт из данных и осторожную интерпретацию. Если данных мало или фактор не менялся, скажи это прямо."
     ].join("\n"),
     input: [
       {
@@ -280,8 +436,8 @@ async function askLlm(question, entries) {
             text: [
               `Вопрос пользователя: ${question}`,
               "",
-              "Данные дневника в JSON:",
-              JSON.stringify(entries, null, 2)
+              "Предварительно рассчитанная аналитика:",
+              JSON.stringify(analytics, null, 2)
             ].join("\n")
           }
         ]
@@ -289,7 +445,16 @@ async function askLlm(question, entries) {
     ]
   });
 
-  return response.output_text;
+  return sanitizeLlmAnswer(response.output_text);
+}
+
+function sanitizeLlmAnswer(text) {
+  return String(text || "")
+    .replace(/```[a-z]*\n?/gi, "")
+    .replace(/```/g, "")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .trim();
 }
 
 app.listen(port, () => {

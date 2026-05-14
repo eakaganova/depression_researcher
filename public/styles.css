@@ -115,6 +115,10 @@ button:hover {
   gap: 12px;
 }
 
+.workspace > .panel {
+  min-width: 0;
+}
+
 .panel {
   padding: 16px;
   margin-top: 12px;
@@ -122,6 +126,10 @@ button:hover {
 
 .workspace .panel {
   margin-top: 0;
+}
+
+.chart-panel {
+  overflow: hidden;
 }
 
 .panel-title {
@@ -134,12 +142,17 @@ button:hover {
 
 .chart {
   display: grid;
-  grid-template-columns: repeat(var(--count), minmax(22px, 1fr));
+  grid-template-columns: repeat(var(--count), 26px);
   align-items: end;
   gap: 8px;
-  min-height: 260px;
+  max-width: 100%;
+  min-height: 300px;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding-top: 18px;
+  padding-bottom: 34px;
   border-bottom: 1px solid var(--line);
+  scrollbar-color: var(--line) transparent;
 }
 
 .bar {
@@ -305,6 +318,7 @@ textarea:focus {
 
   .chart {
     gap: 5px;
+    grid-template-columns: repeat(var(--count), 22px);
   }
 
   .bar small {
