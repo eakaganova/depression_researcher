@@ -11,6 +11,8 @@ const series = [
   { key: "joy", label: "Радость", color: "#b45b73" },
   { key: "interest", label: "Интерес", color: "#4d7fa3" }
 ];
+const chartMinValue = 0;
+const chartMaxValue = 10;
 
 let currentRows = [];
 
@@ -42,10 +44,12 @@ function renderChart(rows) {
   const padding = { top: 46, right: 28, bottom: 52, left: 36 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
-  const maxValue = 10;
 
   const x = (index) => padding.left + (chartRows.length === 1 ? 0 : (index / (chartRows.length - 1)) * plotWidth);
-  const y = (value) => padding.top + plotHeight - (value / maxValue) * plotHeight;
+  const y = (value) => {
+    const clamped = Math.min(chartMaxValue, Math.max(chartMinValue, value));
+    return padding.top + plotHeight - ((clamped - chartMinValue) / (chartMaxValue - chartMinValue)) * plotHeight;
+  };
 
   const grid = [0, 2, 4, 6, 8, 10]
     .map(
@@ -57,7 +61,7 @@ function renderChart(rows) {
     .join("");
 
   const lines = series.map((item) => renderSeries(item, chartRows, x, y)).join("");
-  const events = chartRows.map((row, index) => renderEvent(row, x(index), padding.top)).join("");
+  const events = chartRows.map((row, index) => renderEvent(row, x(index), padding.top, height - padding.bottom)).join("");
   const dates = chartRows.map((row, index) => renderDate(row, index, chartRows.length, x(index), height)).join("");
 
   chartEl.innerHTML = `
@@ -107,17 +111,30 @@ function buildSmoothPath(points) {
   return path;
 }
 
-function renderEvent(row, x, top) {
+function renderEvent(row, x, top, bottom) {
   const event = getImportantEvent(row);
   if (!event) return "";
 
   return `
     <g class="event-marker-svg">
-      <line x1="${x}" x2="${x}" y1="${top + 8}" y2="${top + 36}"></line>
-      <circle cx="${x}" cy="${top + 8}" r="6"></circle>
+      <line x1="${x}" x2="${x}" y1="${top}" y2="${bottom}"></line>
+      <circle cx="${x}" cy="${top + 8}" r="5"></circle>
+      <rect class="event-tooltip-bg" x="${x - 108}" y="${top - 40}" width="216" height="30" rx="8"></rect>
+      <text class="event-tooltip-text" x="${x}" y="${top - 20}">${escapeSvgText(shortenEvent(event))}</text>
       <title>${escapeHtml(event)}</title>
     </g>
   `;
+}
+
+function shortenEvent(event) {
+  return event.length > 34 ? `${event.slice(0, 31)}...` : event;
+}
+
+function escapeSvgText(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 function renderDate(row, index, total, x, height) {

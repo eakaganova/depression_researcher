@@ -102,17 +102,17 @@ button:hover {
   position: relative;
   display: grid;
   grid-template-columns: 46px minmax(0, 1fr);
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
   column-gap: 10px;
   align-items: center;
-  min-height: 74px;
+  min-height: 88px;
   padding: 12px;
   overflow: hidden;
 }
 
 .metric::before {
   content: "";
-  grid-row: 1 / 3;
+  grid-row: 1 / 4;
   width: 42px;
   height: 42px;
   image-rendering: pixelated;
@@ -147,6 +147,13 @@ button:hover {
   margin-top: 2px;
   font-size: 28px;
   line-height: 1;
+}
+
+.metric small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .panel {
@@ -252,13 +259,45 @@ button:hover {
 
 .event-marker-svg line {
   stroke: #d6a64c;
-  stroke-width: 1.5;
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+  opacity: 0.38;
 }
 
 .event-marker-svg circle {
   fill: #d6a64c;
   stroke: #fff8ea;
   stroke-width: 3;
+}
+
+.event-tooltip-bg,
+.event-tooltip-text {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.event-tooltip-bg {
+  fill: #fff8ea;
+  stroke: #d6a64c;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 4px 10px rgba(80, 58, 24, 0.14));
+}
+
+.event-tooltip-text {
+  fill: #6b4a16;
+  font-size: 14px;
+  font-weight: 800;
+  text-anchor: middle;
+}
+
+.event-marker-svg:hover line {
+  opacity: 0.75;
+  stroke-width: 1.5;
+}
+
+.event-marker-svg:hover .event-tooltip-bg,
+.event-marker-svg:hover .event-tooltip-text {
+  opacity: 1;
 }
 
 .medications {
@@ -347,7 +386,7 @@ textarea:focus {
 
   .metric {
     grid-template-columns: 36px minmax(0, 1fr);
-    min-height: 66px;
+    min-height: 82px;
     padding: 10px;
   }
 
