@@ -3,6 +3,9 @@ const entriesEl = document.querySelector("#entries");
 const medicationsEl = document.querySelector("#medications");
 const reportEl = document.querySelector("#report");
 const reportButton = document.querySelector("#reportButton");
+const askForm = document.querySelector("#askForm");
+const questionInput = document.querySelector("#questionInput");
+const answerEl = document.querySelector("#answer");
 
 function average(rows, key) {
   if (!rows.length) return "-";
@@ -90,6 +93,33 @@ async function createReport(rows) {
   }
 }
 
+async function askQuestion(question) {
+  const askButton = document.querySelector("#askButton");
+  askButton.disabled = true;
+  askButton.textContent = "Думаю...";
+  answerEl.textContent = "Сверяю вопрос с таблицей...";
+
+  try {
+    const response = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question })
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.details || data.error || "Не удалось получить ответ");
+    }
+
+    answerEl.textContent = data.answer;
+  } catch (error) {
+    answerEl.textContent = `Ошибка: ${error.message}`;
+  } finally {
+    askButton.disabled = false;
+    askButton.textContent = "Спросить";
+  }
+}
+
 async function init() {
   try {
     const response = await fetch("/api/entries");
@@ -107,6 +137,12 @@ async function init() {
     renderMedications(rows);
 
     reportButton.addEventListener("click", () => createReport(rows));
+    askForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const question = questionInput.value.trim();
+      if (!question) return;
+      askQuestion(question);
+    });
   } catch (error) {
     reportEl.textContent = `Ошибка загрузки данных: ${error.message}`;
   }

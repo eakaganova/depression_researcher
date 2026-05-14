@@ -36,3 +36,16 @@ GOOGLE_SHEET_CSV_URL=ссылка CSV
 ```
 
 Если задана `GOOGLE_SHEET_CSV_URL`, приложение использует ее вместо service account.
+
+## LLM-вопросы по таблице
+
+Для блока вопросов на сайте добавь в Render:
+
+```text
+YANDEX_CLOUD_FOLDER=...
+YANDEX_CLOUD_API_KEY=...
+YANDEX_CLOUD_MODEL=gpt-oss-120b/latest
+YANDEX_CLOUD_BASE_URL=https://ai.api.cloud.yandex.net/v1
+```
+
+API-ключ хранится только в Render Environment Variables. В GitHub его добавлять нельзя.

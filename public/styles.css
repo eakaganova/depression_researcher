@@ -245,6 +245,30 @@ pre {
   color: #28312d;
 }
 
+.ask-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--ink);
+  background: #fff;
+  line-height: 1.45;
+}
+
+textarea:focus {
+  outline: 2px solid rgba(34, 105, 87, 0.18);
+  border-color: var(--accent);
+}
+
 @media (max-width: 820px) {
   .masthead,
   .panel-title {
@@ -263,6 +287,10 @@ pre {
 
   .entry {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .ask-form {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -43,3 +43,16 @@ GOOGLE_SHEET_CSV_URL=...
 ```
 
 Если переменные не заданы, сервис показывает демо-данные.
+
+## Подключение LLM через Yandex Cloud
+
+В Render добавь переменные окружения:
+
+```text
+YANDEX_CLOUD_FOLDER=...
+YANDEX_CLOUD_API_KEY=...
+YANDEX_CLOUD_MODEL=gpt-oss-120b/latest
+YANDEX_CLOUD_BASE_URL=https://ai.api.cloud.yandex.net/v1
+```
+
+После этого на сайте появится рабочий блок вопросов по данным таблицы. Ключи нельзя добавлять в GitHub.

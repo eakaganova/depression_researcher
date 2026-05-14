@@ -1,5 +1,6 @@
 import express from "express";
 import { google } from "googleapis";
+import OpenAI from "openai";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -50,6 +51,33 @@ app.get("/api/entries", async (request, response) => {
 app.post("/api/report", async (request, response) => {
   const entries = Array.isArray(request.body?.entries) ? request.body.entries : sampleEntries;
   response.json({ report: buildLocalReport(entries) });
+});
+
+app.post("/api/ask", async (request, response) => {
+  try {
+    const question = String(request.body?.question || "").trim();
+    if (!question) {
+      response.status(400).json({ error: "Вопрос пустой." });
+      return;
+    }
+
+    if (!process.env.YANDEX_CLOUD_API_KEY || !process.env.YANDEX_CLOUD_FOLDER) {
+      response.status(400).json({
+        error: "LLM не настроена. Добавь YANDEX_CLOUD_API_KEY и YANDEX_CLOUD_FOLDER в Render Environment Variables."
+      });
+      return;
+    }
+
+    const entries = await loadEntries();
+    const answer = await askLlm(question, entries);
+    response.json({ answer });
+  } catch (error) {
+    console.error("Failed to ask LLM:", error);
+    response.status(500).json({
+      error: "Не удалось получить ответ от LLM.",
+      details: error.message
+    });
+  }
 });
 
 async function loadEntries() {
@@ -220,6 +248,48 @@ function buildMedicationSummary(entries) {
   if (!latest) return "Недостаточно данных по лекарствам.";
 
   return `Последняя запись: Золофт ${latest.zoloft}, Зилаксера ${latest.zilaxera}, Триттико / Атаракс ${latest.tritticoAtarax}, литий ${latest.lithiumMg} мг. Изменения дозировок стоит обсуждать только с врачом.`;
+}
+
+async function askLlm(question, entries) {
+  const folder = process.env.YANDEX_CLOUD_FOLDER;
+  const model = process.env.YANDEX_CLOUD_MODEL || "gpt-oss-120b/latest";
+  const client = new OpenAI({
+    apiKey: process.env.YANDEX_CLOUD_API_KEY,
+    baseURL: process.env.YANDEX_CLOUD_BASE_URL || "https://ai.api.cloud.yandex.net/v1",
+    project: folder
+  });
+
+  const response = await client.responses.create({
+    model: `gpt://${folder}/${model}`,
+    temperature: 0.3,
+    max_output_tokens: 700,
+    instructions: [
+      "Ты помогаешь пользователю анализировать личный дневник самочувствия и приема лекарств.",
+      "Отвечай только на основе переданных данных.",
+      "Не ставь диагнозы, не назначай лечение, не советуй менять дозировки.",
+      "Если данных недостаточно, прямо скажи об этом.",
+      "Формулируй осторожно: возможно, похоже, стоит обсудить с врачом.",
+      "Отвечай по-русски, кратко и структурно."
+    ].join("\n"),
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: [
+              `Вопрос пользователя: ${question}`,
+              "",
+              "Данные дневника в JSON:",
+              JSON.stringify(entries, null, 2)
+            ].join("\n")
+          }
+        ]
+      }
+    ]
+  });
+
+  return response.output_text;
 }
 
 app.listen(port, () => {

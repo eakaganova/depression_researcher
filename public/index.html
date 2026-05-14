@@ -68,6 +68,18 @@
         </div>
         <pre id="report">Нажми кнопку сверху, чтобы собрать краткий отчет.</pre>
       </section>
+
+      <section class="panel ask-panel">
+        <div class="panel-title">
+          <h2>Вопрос по данным</h2>
+          <span>ответ через LLM</span>
+        </div>
+        <form id="askForm" class="ask-form">
+          <textarea id="questionInput" rows="3" placeholder="Например: в какие дни индекс был ниже и что с ними общего?"></textarea>
+          <button id="askButton" type="submit">Спросить</button>
+        </form>
+        <pre id="answer">Здесь появится ответ по данным из таблицы.</pre>
+      </section>
     </main>
 
     <script src="/app.js"></script>
