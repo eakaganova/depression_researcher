@@ -35,24 +35,6 @@
         </article>
       </section>
 
-      <section class="workspace">
-        <div class="panel chart-panel">
-          <div class="panel-title">
-            <h2>Динамика</h2>
-            <span id="periodLabel">-</span>
-          </div>
-          <div id="chart" class="chart" aria-label="График индекса дня"></div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-title">
-            <h2>Сон и лекарства</h2>
-            <span id="sourceLabel">-</span>
-          </div>
-          <div id="medications" class="medications"></div>
-        </div>
-      </section>
-
       <section class="panel ask-panel">
         <div class="panel-title">
           <h2>Вопрос по данным</h2>
@@ -63,6 +45,32 @@
           <button id="askButton" type="submit">Спросить</button>
         </form>
         <pre id="answer">Здесь появится аналитический ответ по данным из таблицы.</pre>
+      </section>
+
+      <section class="workspace">
+        <div class="panel chart-panel">
+          <div class="panel-title">
+            <div>
+              <h2>Динамика</h2>
+              <span id="periodLabel">-</span>
+            </div>
+            <div class="chart-controls" aria-label="Выбор графика">
+              <button class="chart-option is-active" type="button" data-chart-key="dayIndex">Индекс</button>
+              <button class="chart-option" type="button" data-chart-key="energy">Энергия</button>
+              <button class="chart-option" type="button" data-chart-key="joy">Радость</button>
+              <button class="chart-option" type="button" data-chart-key="interest">Интерес</button>
+            </div>
+          </div>
+          <div id="chart" class="chart" aria-label="График показателя"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">
+            <h2>Сон и лекарства</h2>
+            <span id="sourceLabel">-</span>
+          </div>
+          <div id="medications" class="medications"></div>
+        </div>
       </section>
 
       <section class="panel report-panel">

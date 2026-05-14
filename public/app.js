@@ -5,6 +5,17 @@ const reportButton = document.querySelector("#reportButton");
 const askForm = document.querySelector("#askForm");
 const questionInput = document.querySelector("#questionInput");
 const answerEl = document.querySelector("#answer");
+const chartOptions = Array.from(document.querySelectorAll(".chart-option"));
+
+const chartLabels = {
+  dayIndex: "индекс",
+  energy: "энергия",
+  joy: "радость",
+  interest: "интерес"
+};
+
+let activeChartKey = "dayIndex";
+let currentRows = [];
 
 function average(rows, key) {
   const values = rows.map((row) => row[key]).filter(Number.isFinite);
@@ -22,19 +33,31 @@ function renderMetrics(rows, source) {
   document.querySelector("#periodLabel").textContent = `${formatDate(rows[0])} - ${formatDate(rows.at(-1))}`;
 }
 
-function renderChart(rows) {
-  const chartRows = rows.filter((row) => Number.isFinite(row.dayIndex));
+function renderChart(rows, key = activeChartKey) {
+  const chartRows = rows.filter((row) => Number.isFinite(row[key]));
   chartEl.style.setProperty("--count", Math.max(chartRows.length, 1));
-  chartEl.innerHTML = chartRows
-    .map(
-      (row) => `
-        <div class="bar" style="--value: ${row.dayIndex}" data-sleep="${row.sleepProblem}" title="${formatDate(row)}: индекс ${row.dayIndex}">
-          <span>${row.dayIndex}</span>
-          <small>${formatShortDate(row)}</small>
-        </div>
-      `
-    )
-    .join("");
+  chartEl.innerHTML = chartRows.map((row) => renderBar(row, key)).join("");
+}
+
+function renderBar(row, key) {
+  const value = row[key];
+  const event = getImportantEvent(row);
+  const titleParts = [`${formatDate(row)}: ${chartLabels[key]} ${value}`];
+  if (event) titleParts.push(event);
+
+  return `
+    <div class="bar" style="--value: ${value}" data-sleep="${row.sleepProblem}" title="${escapeHtml(titleParts.join(" · "))}">
+      ${event ? `<span class="event-note">${escapeHtml(event)}</span>` : ""}
+      <span class="bar-value">${value}</span>
+      <small>${formatShortDate(row)}</small>
+    </div>
+  `;
+}
+
+function getImportantEvent(row) {
+  const event = String(row.importantEvent || "").trim();
+  if (!event || event.toLowerCase() === "нет") return "";
+  return event;
 }
 
 function formatDate(row) {
@@ -134,7 +157,27 @@ async function askQuestion(question) {
   }
 }
 
+function bindChartControls() {
+  chartOptions.forEach((button) => {
+    button.addEventListener("click", () => {
+      activeChartKey = button.dataset.chartKey;
+      chartOptions.forEach((option) => option.classList.toggle("is-active", option === button));
+      renderChart(currentRows, activeChartKey);
+    });
+  });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 async function init() {
+  bindChartControls();
+
   try {
     const response = await fetch("/api/entries");
     const data = await response.json();
@@ -143,13 +186,13 @@ async function init() {
       throw new Error(data.details || data.error || "Не удалось загрузить данные");
     }
 
-    const rows = data.entries || [];
+    currentRows = data.entries || [];
 
-    renderMetrics(rows, data.source || "-");
-    renderChart(rows);
-    renderMedications(rows);
+    renderMetrics(currentRows, data.source || "-");
+    renderChart(currentRows);
+    renderMedications(currentRows);
 
-    reportButton.addEventListener("click", () => createReport(rows));
+    reportButton.addEventListener("click", () => createReport(currentRows));
     askForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const question = questionInput.value.trim();

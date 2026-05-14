@@ -85,6 +85,34 @@ button:hover {
   background: var(--accent-strong);
 }
 
+.chart-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.chart-option {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.chart-option:hover {
+  background: #f4f8f6;
+  color: var(--accent-strong);
+}
+
+.chart-option.is-active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
 .summary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -146,10 +174,10 @@ button:hover {
   align-items: end;
   gap: 8px;
   max-width: 100%;
-  min-height: 300px;
+  min-height: 370px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-top: 18px;
+  padding-top: 104px;
   padding-bottom: 34px;
   border-bottom: 1px solid var(--line);
   scrollbar-color: var(--line) transparent;
@@ -167,13 +195,54 @@ button:hover {
   background: var(--rose);
 }
 
-.bar span {
+.bar-value {
   position: absolute;
   top: -20px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 12px;
   color: var(--muted);
+}
+
+.event-note {
+  position: absolute;
+  bottom: calc(100% + 30px);
+  left: 50%;
+  z-index: 2;
+  width: max-content;
+  max-width: 170px;
+  transform: translateX(-50%);
+  border: 1px solid #ead8b7;
+  border-radius: 8px;
+  background: #fff8ea;
+  color: #6b4a16;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(80, 58, 24, 0.12);
+}
+
+.event-note::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 1px;
+  height: 24px;
+  background: #d6a64c;
+}
+
+.event-note::before {
+  content: "";
+  position: absolute;
+  left: calc(50% - 4px);
+  top: calc(100% + 20px);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 0;
+  border-bottom: 7px solid #d6a64c;
 }
 
 .bar small {
@@ -289,6 +358,10 @@ textarea:focus {
     flex-direction: column;
   }
 
+  .chart-controls {
+    justify-content: flex-start;
+  }
+
   .summary,
   .workspace {
     grid-template-columns: 1fr 1fr;
@@ -319,6 +392,11 @@ textarea:focus {
   .chart {
     gap: 5px;
     grid-template-columns: repeat(var(--count), 22px);
+  }
+
+  .event-note {
+    max-width: 132px;
+    font-size: 11px;
   }
 
   .bar small {
