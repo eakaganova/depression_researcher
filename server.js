@@ -1,4 +1,5 @@
 import express from "express";
+import { google } from "googleapis";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -8,110 +9,22 @@ const port = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const sheetRange = process.env.GOOGLE_SHEET_RANGE || "A:K";
+
 const sampleEntries = [
-  {
-    date: "2025-12-29",
-    energy: 6,
-    joy: 3,
-    interest: 5,
-    dayIndex: 4.7,
-    sleepProblem: false,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  },
-  {
-    date: "2025-12-30",
-    energy: 3,
-    joy: 2,
-    interest: 2,
-    dayIndex: 2.3,
-    sleepProblem: true,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  },
-  {
-    date: "2025-12-31",
-    energy: 4,
-    joy: 3,
-    interest: 3,
-    dayIndex: 3.3,
-    sleepProblem: false,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  },
-  {
-    date: "2026-01-01",
-    energy: 4,
-    joy: 5,
-    interest: 4,
-    dayIndex: 4.3,
-    sleepProblem: false,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  },
-  {
-    date: "2026-01-02",
-    energy: 4,
-    joy: 5,
-    interest: 3,
-    dayIndex: 4,
-    sleepProblem: false,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  },
-  {
-    date: "2026-01-03",
-    energy: 3,
-    joy: 4,
-    interest: 2,
-    dayIndex: 3,
-    sleepProblem: false,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  },
-  {
-    date: "2026-01-04",
-    energy: 5,
-    joy: 3,
-    interest: 3,
-    dayIndex: 3.7,
-    sleepProblem: false,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  },
-  {
-    date: "2026-01-05",
-    energy: 4,
-    joy: 3,
-    interest: 3,
-    dayIndex: 3.3,
-    sleepProblem: false,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  },
-  {
-    date: "2026-01-06",
-    energy: 3,
-    joy: 4,
-    interest: 3,
-    dayIndex: 3.3,
-    sleepProblem: false,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  },
-  {
-    date: "2026-01-07",
-    energy: 4,
-    joy: 4,
-    interest: 4,
-    dayIndex: 4,
-    sleepProblem: false,
-    importantEvent: "нет",
-    medications: { zoloft: 200, zilaxera: 5, tritticoAtarax: 0, lithiumMg: 0 }
-  }
+  rowToEntry(["29.12.2025", "6", "3", "5", "4,7", "Нет", "нет", "200", "5", "0", "0"]),
+  rowToEntry(["30.12.2025", "3", "2", "2", "2,3", "Да", "нет", "200", "5", "0", "0"]),
+  rowToEntry(["31.12.2025", "4", "3", "3", "3,3", "Нет", "нет", "200", "5", "0", "0"]),
+  rowToEntry(["01.01.2026", "4", "5", "4", "4,3", "Нет", "нет", "200", "5", "0", "0"]),
+  rowToEntry(["02.01.2026", "4", "5", "3", "4,0", "Нет", "нет", "200", "5", "0", "0"]),
+  rowToEntry(["03.01.2026", "3", "4", "2", "3,0", "Нет", "нет", "200", "5", "0", "0"]),
+  rowToEntry(["04.01.2026", "5", "3", "3", "3,7", "Нет", "нет", "200", "5", "0", "0"]),
+  rowToEntry(["05.01.2026", "4", "3", "3", "3,3", "Нет", "нет", "200", "5", "0", "0"]),
+  rowToEntry(["06.01.2026", "3", "4", "3", "3,3", "Нет", "нет", "200", "5", "0", "0"]),
+  rowToEntry(["07.01.2026", "4", "4", "4", "4,0", "Нет", "нет", "200", "5", "0", "0"])
 ];
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/health", (request, response) => {
@@ -119,13 +32,149 @@ app.get("/api/health", (request, response) => {
 });
 
 app.get("/api/entries", async (request, response) => {
-  response.json(sampleEntries);
+  try {
+    const entries = await loadEntries();
+    response.json({
+      source: getConfiguredSourceName(),
+      entries
+    });
+  } catch (error) {
+    console.error("Failed to load entries:", error);
+    response.status(500).json({
+      error: "Не удалось загрузить данные из таблицы.",
+      details: error.message
+    });
+  }
 });
 
 app.post("/api/report", async (request, response) => {
   const entries = Array.isArray(request.body?.entries) ? request.body.entries : sampleEntries;
   response.json({ report: buildLocalReport(entries) });
 });
+
+async function loadEntries() {
+  if (process.env.GOOGLE_SHEET_CSV_URL) {
+    return loadEntriesFromCsv(process.env.GOOGLE_SHEET_CSV_URL);
+  }
+
+  if (process.env.GOOGLE_SHEET_ID && process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+    return loadEntriesFromGoogleApi();
+  }
+
+  return sampleEntries;
+}
+
+function getConfiguredSourceName() {
+  if (process.env.GOOGLE_SHEET_CSV_URL) return "Google Sheets CSV";
+  if (process.env.GOOGLE_SHEET_ID) return "Google Sheets API";
+  return "Демо-данные";
+}
+
+async function loadEntriesFromGoogleApi() {
+  const auth = new google.auth.JWT({
+    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    key: normalizePrivateKey(process.env.GOOGLE_PRIVATE_KEY),
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+  });
+
+  const sheets = google.sheets({ version: "v4", auth });
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId: process.env.GOOGLE_SHEET_ID,
+    range: sheetRange
+  });
+
+  return rowsToEntries(result.data.values || []);
+}
+
+async function loadEntriesFromCsv(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`CSV returned ${response.status}`);
+  }
+
+  const csv = await response.text();
+  return rowsToEntries(parseCsv(csv));
+}
+
+function rowsToEntries(rows) {
+  const dataRows = rows.filter((row) => row.some((cell) => String(cell || "").trim()));
+  const withoutHeader = dataRows.slice(1);
+  return withoutHeader.map(rowToEntry).filter((entry) => entry.date);
+}
+
+function rowToEntry(row) {
+  return {
+    date: normalizeDate(row[0]),
+    energy: parseNumber(row[1]),
+    joy: parseNumber(row[2]),
+    interest: parseNumber(row[3]),
+    dayIndex: parseNumber(row[4]),
+    sleepProblem: parseBoolean(row[5]),
+    importantEvent: String(row[6] || "").trim(),
+    medications: {
+      zoloft: parseNumber(row[7]),
+      zilaxera: parseNumber(row[8]),
+      tritticoAtarax: parseNumber(row[9]),
+      lithiumMg: parseNumber(row[10])
+    }
+  };
+}
+
+function normalizeDate(value) {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (!match) return raw;
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+function parseNumber(value) {
+  const normalized = String(value ?? "").replace(",", ".").trim();
+  if (!normalized) return 0;
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function parseBoolean(value) {
+  return ["да", "yes", "true", "1"].includes(String(value || "").trim().toLowerCase());
+}
+
+function normalizePrivateKey(key) {
+  return key.replace(/\\n/g, "\n");
+}
+
+function parseCsv(csv) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < csv.length; index += 1) {
+    const char = csv[index];
+    const next = csv[index + 1];
+
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(cell);
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+
+  row.push(cell);
+  rows.push(row);
+  return rows;
+}
 
 function average(entries, key) {
   if (!entries.length) return 0;
@@ -157,13 +206,20 @@ function buildLocalReport(entries) {
     worstDay ? `Самый сложный день по индексу: ${worstDay.date}, индекс ${worstDay.dayIndex}.` : "Недостаточно данных.",
     "",
     "Лекарства:",
-    "В периоде отслеживаются Золофт, Зилаксера, Триттико / Атаракс и литий. Изменений дозировок в демо-данных нет.",
+    buildMedicationSummary(entries),
     "",
     "Вопросы к врачу:",
     "- Есть ли связь между сном и снижением индекса дня?",
     "- Стоит ли отдельно отслеживать тревогу, раздражительность и побочные эффекты?",
     "- Достаточно ли текущих метрик для оценки динамики лечения?"
   ].join("\n");
+}
+
+function buildMedicationSummary(entries) {
+  const latest = entries.at(-1)?.medications;
+  if (!latest) return "Недостаточно данных по лекарствам.";
+
+  return `Последняя запись: Золофт ${latest.zoloft}, Зилаксера ${latest.zilaxera}, Триттико / Атаракс ${latest.tritticoAtarax}, литий ${latest.lithiumMg} мг. Изменения дозировок стоит обсуждать только с врачом.`;
 }
 
 app.listen(port, () => {

@@ -10,17 +10,18 @@ function average(rows, key) {
   return (sum / rows.length).toFixed(1);
 }
 
-function renderMetrics(rows) {
+function renderMetrics(rows, source) {
   document.querySelector("#energy").textContent = average(rows, "energy");
   document.querySelector("#joy").textContent = average(rows, "joy");
   document.querySelector("#interest").textContent = average(rows, "interest");
   document.querySelector("#dayIndex").textContent = average(rows, "dayIndex");
   document.querySelector("#rowCount").textContent = `${rows.length} записей`;
+  document.querySelector("#sourceLabel").textContent = source;
   document.querySelector("#periodLabel").textContent = `${rows[0]?.date || "-"} - ${rows.at(-1)?.date || "-"}`;
 }
 
 function renderChart(rows) {
-  chartEl.style.setProperty("--count", rows.length);
+  chartEl.style.setProperty("--count", Math.max(rows.length, 1));
   chartEl.innerHTML = rows
     .map(
       (row) => `
@@ -56,7 +57,7 @@ function renderMedications(rows) {
     ["Золофт", latest.zoloft],
     ["Зилаксера", latest.zilaxera],
     ["Триттико / Атаракс", latest.tritticoAtarax],
-    ["Литий", `${latest.lithiumMg} мг`]
+    ["Литий", `${latest.lithiumMg ?? 0} мг`]
   ];
 
   medicationsEl.innerHTML = items
@@ -90,15 +91,25 @@ async function createReport(rows) {
 }
 
 async function init() {
-  const response = await fetch("/api/entries");
-  const rows = await response.json();
+  try {
+    const response = await fetch("/api/entries");
+    const data = await response.json();
 
-  renderMetrics(rows);
-  renderChart(rows);
-  renderEntries(rows);
-  renderMedications(rows);
+    if (!response.ok) {
+      throw new Error(data.details || data.error || "Не удалось загрузить данные");
+    }
 
-  reportButton.addEventListener("click", () => createReport(rows));
+    const rows = data.entries || [];
+
+    renderMetrics(rows, data.source || "-");
+    renderChart(rows);
+    renderEntries(rows);
+    renderMedications(rows);
+
+    reportButton.addEventListener("click", () => createReport(rows));
+  } catch (error) {
+    reportEl.textContent = `Ошибка загрузки данных: ${error.message}`;
+  }
 }
 
 init();

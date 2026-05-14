@@ -18,4 +18,28 @@ npm start
 3. Подключить репозиторий.
 4. Render возьмет настройки из `render.yaml`.
 
-Пока сервис работает на демо-данных. Реальные ключи для Google Sheets и LLM добавляются в Render Environment Variables.
+## Подключение Google Sheets
+
+Рекомендуемый вариант для приватной таблицы:
+
+1. Создать service account в Google Cloud.
+2. Создать JSON-ключ для service account.
+3. Открыть Google Таблицу и выдать доступ email service account как читателю.
+4. В Render добавить переменные окружения:
+
+```text
+GOOGLE_SHEET_ID=...
+GOOGLE_SHEET_RANGE=A:K
+GOOGLE_SERVICE_ACCOUNT_EMAIL=...
+GOOGLE_PRIVATE_KEY=...
+```
+
+`GOOGLE_PRIVATE_KEY` вставляется целиком, вместе со строками `-----BEGIN PRIVATE KEY-----` и `-----END PRIVATE KEY-----`.
+
+Упрощенный вариант для опубликованной таблицы:
+
+```text
+GOOGLE_SHEET_CSV_URL=...
+```
+
+Если переменные не заданы, сервис показывает демо-данные.
