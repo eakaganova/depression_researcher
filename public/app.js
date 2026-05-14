@@ -5,16 +5,13 @@ const reportButton = document.querySelector("#reportButton");
 const askForm = document.querySelector("#askForm");
 const questionInput = document.querySelector("#questionInput");
 const answerEl = document.querySelector("#answer");
-const chartOptions = Array.from(document.querySelectorAll(".chart-option"));
 
-const chartLabels = {
-  dayIndex: "индекс",
-  energy: "энергия",
-  joy: "радость",
-  interest: "интерес"
-};
+const series = [
+  { key: "energy", label: "Энергия", color: "#236f5d" },
+  { key: "joy", label: "Радость", color: "#b45b73" },
+  { key: "interest", label: "Интерес", color: "#4d7fa3" }
+];
 
-let activeChartKey = "dayIndex";
 let currentRows = [];
 
 function average(rows, key) {
@@ -30,28 +27,104 @@ function renderMetrics(rows, source) {
   document.querySelector("#interest").textContent = average(rows, "interest");
   document.querySelector("#dayIndex").textContent = average(rows, "dayIndex");
   document.querySelector("#sourceLabel").textContent = `${source} · ${rows.length} записей`;
-  document.querySelector("#periodLabel").textContent = `${formatDate(rows[0])} - ${formatDate(rows.at(-1))}`;
+  document.querySelector("#periodLabel").textContent = `${formatShortDate(rows[0])} - ${formatShortDate(rows.at(-1))}`;
 }
 
-function renderChart(rows, key = activeChartKey) {
-  const chartRows = rows.filter((row) => Number.isFinite(row[key]));
-  chartEl.style.setProperty("--count", Math.max(chartRows.length, 1));
-  chartEl.innerHTML = chartRows.map((row) => renderBar(row, key)).join("");
-}
+function renderChart(rows) {
+  const chartRows = rows.filter((row) => series.some((item) => Number.isFinite(row[item.key])));
+  if (!chartRows.length) {
+    chartEl.textContent = "Нет данных для графика.";
+    return;
+  }
 
-function renderBar(row, key) {
-  const value = row[key];
-  const event = getImportantEvent(row);
-  const titleParts = [`${formatDate(row)}: ${chartLabels[key]} ${value}`];
-  if (event) titleParts.push(event);
+  const width = Math.max(860, chartRows.length * 18);
+  const height = 360;
+  const padding = { top: 46, right: 28, bottom: 52, left: 36 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const maxValue = 10;
 
-  return `
-    <div class="bar" style="--value: ${value}" data-sleep="${row.sleepProblem}" title="${escapeHtml(titleParts.join(" · "))}">
-      ${event ? `<span class="event-note">${escapeHtml(event)}</span>` : ""}
-      <span class="bar-value">${value}</span>
-      <small>${formatShortDate(row)}</small>
+  const x = (index) => padding.left + (chartRows.length === 1 ? 0 : (index / (chartRows.length - 1)) * plotWidth);
+  const y = (value) => padding.top + plotHeight - (value / maxValue) * plotHeight;
+
+  const grid = [0, 2, 4, 6, 8, 10]
+    .map(
+      (value) => `
+        <line class="grid-line" x1="${padding.left}" x2="${width - padding.right}" y1="${y(value)}" y2="${y(value)}"></line>
+        <text class="axis-label" x="8" y="${y(value) + 4}">${value}</text>
+      `
+    )
+    .join("");
+
+  const lines = series.map((item) => renderSeries(item, chartRows, x, y)).join("");
+  const events = chartRows.map((row, index) => renderEvent(row, x(index), padding.top)).join("");
+  const dates = chartRows.map((row, index) => renderDate(row, index, chartRows.length, x(index), height)).join("");
+
+  chartEl.innerHTML = `
+    <div class="line-chart-scroll">
+      <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img">
+        ${grid}
+        ${events}
+        ${lines}
+        ${dates}
+      </svg>
     </div>
   `;
+}
+
+function renderSeries(item, rows, x, y) {
+  const points = rows
+    .map((row, index) => (Number.isFinite(row[item.key]) ? { row, index, value: row[item.key] } : null))
+    .filter(Boolean);
+  const path = buildSmoothPath(points.map((point) => [x(point.index), y(point.value)]));
+  const dots = points
+    .map(
+      (point) => `
+        <circle class="line-dot" cx="${x(point.index)}" cy="${y(point.value)}" r="4" fill="${item.color}">
+          <title>${formatDate(point.row)} · ${item.label}: ${point.value}</title>
+        </circle>
+      `
+    )
+    .join("");
+
+  return `
+    <path class="line-path" d="${path}" stroke="${item.color}"></path>
+    ${dots}
+  `;
+}
+
+function buildSmoothPath(points) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M ${points[0][0]} ${points[0][1]}`;
+
+  let path = `M ${points[0][0]} ${points[0][1]}`;
+  for (let index = 1; index < points.length; index += 1) {
+    const [prevX, prevY] = points[index - 1];
+    const [x, y] = points[index];
+    const controlOffset = (x - prevX) / 2;
+    path += ` C ${prevX + controlOffset} ${prevY}, ${x - controlOffset} ${y}, ${x} ${y}`;
+  }
+  return path;
+}
+
+function renderEvent(row, x, top) {
+  const event = getImportantEvent(row);
+  if (!event) return "";
+
+  return `
+    <g class="event-marker-svg">
+      <line x1="${x}" x2="${x}" y1="${top + 8}" y2="${top + 36}"></line>
+      <circle cx="${x}" cy="${top + 8}" r="6"></circle>
+      <title>${escapeHtml(event)}</title>
+    </g>
+  `;
+}
+
+function renderDate(row, index, total, x, height) {
+  const step = total > 80 ? 10 : total > 45 ? 6 : total > 25 ? 3 : 1;
+  if (index % step !== 0 && !row.isToday) return "";
+
+  return `<text class="date-label" x="${x}" y="${height - 14}" transform="rotate(-35 ${x} ${height - 14})">${formatShortDate(row)}</text>`;
 }
 
 function getImportantEvent(row) {
@@ -62,12 +135,14 @@ function getImportantEvent(row) {
 
 function formatDate(row) {
   if (!row?.date) return "-";
-  return row.isToday ? `Сегодня (${row.date})` : row.date;
+  return row.isToday ? `Сегодня (${formatShortDate(row)})` : formatShortDate(row);
 }
 
 function formatShortDate(row) {
   if (!row?.date) return "-";
-  return row.isToday ? "сегодня" : row.date.slice(5);
+  const parts = row.date.split("-");
+  if (parts.length !== 3) return row.date;
+  return `${parts[2]}.${parts[1]}`;
 }
 
 function renderMedications(rows) {
@@ -157,16 +232,6 @@ async function askQuestion(question) {
   }
 }
 
-function bindChartControls() {
-  chartOptions.forEach((button) => {
-    button.addEventListener("click", () => {
-      activeChartKey = button.dataset.chartKey;
-      chartOptions.forEach((option) => option.classList.toggle("is-active", option === button));
-      renderChart(currentRows, activeChartKey);
-    });
-  });
-}
-
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -176,8 +241,6 @@ function escapeHtml(value) {
 }
 
 async function init() {
-  bindChartControls();
-
   try {
     const response = await fetch("/api/entries");
     const data = await response.json();

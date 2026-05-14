@@ -35,42 +35,41 @@
         </article>
       </section>
 
-      <section class="panel ask-panel">
-        <div class="panel-title">
-          <h2>Вопрос по данным</h2>
-          <span>расчеты + LLM</span>
-        </div>
-        <form id="askForm" class="ask-form">
-          <textarea id="questionInput" rows="3" placeholder="Например: что сильнее всего связано с индексом дня?"></textarea>
-          <button id="askButton" type="submit">Спросить</button>
-        </form>
-        <pre id="answer">Здесь появится аналитический ответ по данным из таблицы.</pre>
-      </section>
-
-      <section class="workspace">
-        <div class="panel chart-panel">
+      <section class="top-grid">
+        <section class="panel ask-panel">
           <div class="panel-title">
-            <div>
-              <h2>Динамика</h2>
-              <span id="periodLabel">-</span>
-            </div>
-            <div class="chart-controls" aria-label="Выбор графика">
-              <button class="chart-option is-active" type="button" data-chart-key="dayIndex">Индекс</button>
-              <button class="chart-option" type="button" data-chart-key="energy">Энергия</button>
-              <button class="chart-option" type="button" data-chart-key="joy">Радость</button>
-              <button class="chart-option" type="button" data-chart-key="interest">Интерес</button>
-            </div>
+            <h2>Вопрос по данным</h2>
+            <span>расчеты + LLM</span>
           </div>
-          <div id="chart" class="chart" aria-label="График показателя"></div>
-        </div>
+          <form id="askForm" class="ask-form">
+            <textarea id="questionInput" rows="3" placeholder="Например: что сильнее всего связано с индексом дня?"></textarea>
+            <button id="askButton" type="submit">Спросить</button>
+          </form>
+          <pre id="answer">Здесь появится аналитический ответ по данным из таблицы.</pre>
+        </section>
 
-        <div class="panel">
+        <section class="panel">
           <div class="panel-title">
             <h2>Сон и лекарства</h2>
             <span id="sourceLabel">-</span>
           </div>
           <div id="medications" class="medications"></div>
+        </section>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="panel-title">
+          <div>
+            <h2>Динамика</h2>
+            <span id="periodLabel">-</span>
+          </div>
+          <div class="line-legend" aria-label="Показатели графика">
+            <span><i class="legend-energy"></i>Энергия</span>
+            <span><i class="legend-joy"></i>Радость</span>
+            <span><i class="legend-interest"></i>Интерес</span>
+          </div>
         </div>
+        <div id="chart" class="line-chart" aria-label="График энергии, радости и интереса"></div>
       </section>
 
       <section class="panel report-panel">
