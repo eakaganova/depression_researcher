@@ -11,6 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const sheetRange = process.env.GOOGLE_SHEET_RANGE || "A:K";
+const appTimeZone = process.env.APP_TIME_ZONE || "Europe/Moscow";
 
 const sampleEntries = [
   rowToEntry(["29.12.2025", "6", "3", "5", "4,7", "Нет", "нет", "200", "5", "0", "0"]),
@@ -118,44 +119,175 @@ async function loadEntriesFromGoogleApi() {
 async function loadEntriesFromCsv(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`CSV returned ${response.status}`);
-  return rowsToEntries(parseCsv(await response.text()));
+  return rowsToEntries(parseDelimited(await response.text()));
 }
 
 function rowsToEntries(rows) {
   const dataRows = rows.filter((row) => row.some((cell) => String(cell || "").trim()));
-  return dataRows.slice(1).map(rowToEntry).filter((entry) => entry.date);
+  const rowsWithoutHeader = dataRows.slice(1);
+  const dates = inferEntryDates(rowsWithoutHeader.map((row) => row[0]));
+  const headerMap = buildHeaderMap(dataRows[0] || []);
+
+  return rowsWithoutHeader
+    .map((row, index) => rowToEntry(row, dates[index], headerMap))
+    .filter((entry) => entry.date);
 }
 
-function rowToEntry(row) {
+function rowToEntry(row, normalizedDate = normalizeDate(row[0]), headerMap = null) {
+  const today = getTodayIsoDate();
+
   return {
-    date: normalizeDate(row[0]),
-    energy: parseNumber(row[1]),
-    joy: parseNumber(row[2]),
-    interest: parseNumber(row[3]),
-    dayIndex: parseNumber(row[4]),
-    sleepProblem: parseBoolean(row[5]),
-    importantEvent: String(row[6] || "").trim(),
+    date: normalizedDate,
+    rawDate: String(getCell(row, headerMap, ["дата"], 0) || "").trim(),
+    isToday: normalizedDate === today,
+    energy: parseNumber(getCell(row, headerMap, ["энергия"], 1)),
+    joy: parseNumber(getCell(row, headerMap, ["радость"], 2)),
+    interest: parseNumber(getCell(row, headerMap, ["интерес"], 3)),
+    dayIndex: parseNumber(getCell(row, headerMap, ["индекс дня", "индекс"], 4)),
+    sleepProblem: parseBoolean(getCell(row, headerMap, ["проблемы со сном ночью", "сон"], 5)),
+    importantEvent: String(getCell(row, headerMap, ["что-то важное", "важное", "событие"], 6) || "").trim(),
     medications: {
-      zoloft: parseNumber(row[7]),
-      zilaxera: parseNumber(row[8]),
-      tritticoAtarax: parseNumber(row[9]),
-      lithiumMg: parseNumber(row[10])
+      zoloft: parseNumber(getCell(row, headerMap, ["золофт"], 7)),
+      zilaxera: parseNumber(getCell(row, headerMap, ["зилаксера"], 8)),
+      tritticoAtarax: parseNumber(getCell(row, headerMap, ["триттико атаракс", "триттико", "атаракс"], 9)),
+      lithiumMg: parseNumber(getCell(row, headerMap, ["литий мг", "литий"], 10))
     }
   };
 }
 
+function buildHeaderMap(headerRow) {
+  const map = new Map();
+  headerRow.forEach((header, index) => {
+    const normalized = normalizeHeader(header);
+    if (normalized) map.set(normalized, index);
+  });
+  return map;
+}
+
+function getCell(row, headerMap, names, fallbackIndex) {
+  if (headerMap) {
+    for (const name of names) {
+      const exactIndex = headerMap.get(normalizeHeader(name));
+      if (exactIndex !== undefined) return row[exactIndex];
+
+      for (const [header, index] of headerMap.entries()) {
+        if (header.includes(normalizeHeader(name))) return row[index];
+      }
+    }
+  }
+
+  return row[fallbackIndex];
+}
+
+function normalizeHeader(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[\\/_()[\]{}.,;:|+-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalizeDate(value) {
+  return inferEntryDates([value])[0] || String(value || "").trim();
+}
+
+function inferEntryDates(values) {
+  const today = getTodayIsoDate();
+  const todayParts = splitIsoDate(today);
+  const parsedDates = values.map((value) => parseDateParts(value));
+  const lastKnownIndex = findLastIndex(parsedDates, Boolean);
+  const hasMissingYears = parsedDates.some((date) => date && !date.year);
+  let currentYear = todayParts.year;
+
+  if (lastKnownIndex !== -1 && parsedDates[lastKnownIndex]?.year) {
+    currentYear = parsedDates[lastKnownIndex].year;
+  }
+
+  return parsedDates.map((date, index) => {
+    if (!date) return String(values[index] || "").trim();
+    if (date.year) return toIsoDate(date.year, date.month, date.day);
+
+    let year = currentYear;
+
+    if (hasMissingYears) {
+      const monthDay = date.month * 100 + date.day;
+      const todayMonthDay = todayParts.month * 100 + todayParts.day;
+      year = monthDay > todayMonthDay && index <= lastKnownIndex ? todayParts.year - 1 : todayParts.year;
+    }
+
+    return toIsoDate(year, date.month, date.day);
+  });
+}
+
+function parseDateParts(value) {
   const raw = String(value || "").trim();
-  const match = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-  if (!match) return raw;
-  return `${match[3]}-${match[2]}-${match[1]}`;
+  if (!raw) return null;
+
+  const isoMatch = raw.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (isoMatch) {
+    return parts(Number(isoMatch[1]), Number(isoMatch[2]), Number(isoMatch[3]));
+  }
+
+  const localMatch = raw.match(/^(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2,4}))?$/);
+  if (localMatch) {
+    const year = localMatch[3] ? normalizeYear(Number(localMatch[3])) : null;
+    return parts(year, Number(localMatch[2]), Number(localMatch[1]));
+  }
+
+  const serial = Number(raw.replace(",", "."));
+  if (Number.isFinite(serial) && serial > 20000 && serial < 80000) {
+    const date = new Date(Date.UTC(1899, 11, 30 + Math.floor(serial)));
+    return parts(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+  }
+
+  return null;
+}
+
+function parts(year, month, day) {
+  if (!Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+  return { year, month, day };
+}
+
+function normalizeYear(year) {
+  if (year < 100) return year >= 70 ? 1900 + year : 2000 + year;
+  return year;
+}
+
+function toIsoDate(year, month, day) {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function splitIsoDate(date) {
+  const [year, month, day] = date.split("-").map(Number);
+  return { year, month, day };
+}
+
+function getTodayIsoDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: appTimeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${byType.year}-${byType.month}-${byType.day}`;
+}
+
+function findLastIndex(items, predicate) {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (predicate(items[index])) return index;
+  }
+  return -1;
 }
 
 function parseNumber(value) {
   const normalized = String(value ?? "").replace(",", ".").trim();
-  if (!normalized) return 0;
+  if (!normalized) return null;
   const number = Number(normalized);
-  return Number.isFinite(number) ? number : 0;
+  return Number.isFinite(number) ? number : null;
 }
 
 function parseBoolean(value) {
@@ -166,22 +298,37 @@ function normalizePrivateKey(key) {
   return key.replace(/\\n/g, "\n");
 }
 
-function parseCsv(csv) {
+function parseDelimited(text) {
+  return parseSeparatedValues(text, detectDelimiter(text));
+}
+
+function detectDelimiter(text) {
+  const firstLine = String(text || "").split(/\r?\n/)[0] || "";
+  const candidates = [",", "\t", ";"];
+  return candidates
+    .map((delimiter) => ({
+      delimiter,
+      count: firstLine.split(delimiter).length
+    }))
+    .sort((a, b) => b.count - a.count)[0].delimiter;
+}
+
+function parseSeparatedValues(text, delimiter) {
   const rows = [];
   let row = [];
   let cell = "";
   let quoted = false;
 
-  for (let index = 0; index < csv.length; index += 1) {
-    const char = csv[index];
-    const next = csv[index + 1];
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
 
     if (char === '"' && quoted && next === '"') {
       cell += '"';
       index += 1;
     } else if (char === '"') {
       quoted = !quoted;
-    } else if (char === "," && !quoted) {
+    } else if (char === delimiter && !quoted) {
       row.push(cell);
       cell = "";
     } else if ((char === "\n" || char === "\r") && !quoted) {
@@ -201,8 +348,9 @@ function parseCsv(csv) {
 }
 
 function average(entries, key) {
-  if (!entries.length) return 0;
-  return entries.reduce((total, entry) => total + Number(entry[key] || 0), 0) / entries.length;
+  const values = entries.map((entry) => entry[key]).filter(Number.isFinite);
+  if (!values.length) return 0;
+  return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
 function round(value, digits = 2) {

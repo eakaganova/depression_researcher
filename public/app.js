@@ -7,9 +7,10 @@ const questionInput = document.querySelector("#questionInput");
 const answerEl = document.querySelector("#answer");
 
 function average(rows, key) {
-  if (!rows.length) return "-";
-  const sum = rows.reduce((total, row) => total + Number(row[key] || 0), 0);
-  return (sum / rows.length).toFixed(1);
+  const values = rows.map((row) => row[key]).filter(Number.isFinite);
+  if (!values.length) return "-";
+  const sum = values.reduce((total, value) => total + value, 0);
+  return (sum / values.length).toFixed(1);
 }
 
 function renderMetrics(rows, source) {
@@ -18,30 +19,41 @@ function renderMetrics(rows, source) {
   document.querySelector("#interest").textContent = average(rows, "interest");
   document.querySelector("#dayIndex").textContent = average(rows, "dayIndex");
   document.querySelector("#sourceLabel").textContent = `${source} · ${rows.length} записей`;
-  document.querySelector("#periodLabel").textContent = `${rows[0]?.date || "-"} - ${rows.at(-1)?.date || "-"}`;
+  document.querySelector("#periodLabel").textContent = `${formatDate(rows[0])} - ${formatDate(rows.at(-1))}`;
 }
 
 function renderChart(rows) {
-  chartEl.style.setProperty("--count", Math.max(rows.length, 1));
-  chartEl.innerHTML = rows
+  const chartRows = rows.filter((row) => Number.isFinite(row.dayIndex));
+  chartEl.style.setProperty("--count", Math.max(chartRows.length, 1));
+  chartEl.innerHTML = chartRows
     .map(
       (row) => `
-        <div class="bar" style="--value: ${row.dayIndex}" data-sleep="${row.sleepProblem}" title="${row.date}: индекс ${row.dayIndex}">
+        <div class="bar" style="--value: ${row.dayIndex}" data-sleep="${row.sleepProblem}" title="${formatDate(row)}: индекс ${row.dayIndex}">
           <span>${row.dayIndex}</span>
-          <small>${row.date.slice(5)}</small>
+          <small>${formatShortDate(row)}</small>
         </div>
       `
     )
     .join("");
 }
 
+function formatDate(row) {
+  if (!row?.date) return "-";
+  return row.isToday ? `Сегодня (${row.date})` : row.date;
+}
+
+function formatShortDate(row) {
+  if (!row?.date) return "-";
+  return row.isToday ? "сегодня" : row.date.slice(5);
+}
+
 function renderMedications(rows) {
-  const latest = rows.at(-1)?.medications || {};
+  const latest = getMedicationSnapshot(rows);
   const items = [
     ["Золофт", latest.zoloft],
     ["Зилаксера", latest.zilaxera],
     ["Триттико / Атаракс", latest.tritticoAtarax],
-    ["Литий", `${latest.lithiumMg ?? 0} мг`]
+    ["Литий", latest.lithiumMg === null ? null : `${latest.lithiumMg} мг`]
   ];
 
   medicationsEl.innerHTML = items
@@ -54,6 +66,27 @@ function renderMedications(rows) {
       `
     )
     .join("");
+}
+
+function getMedicationSnapshot(rows) {
+  const todayRow = rows.find((row) => row.isToday);
+  const currentDate = todayRow?.date || rows.at(-1)?.date;
+  const eligibleRows = rows.filter((row) => !currentDate || row.date <= currentDate);
+  const snapshot = {
+    zoloft: null,
+    zilaxera: null,
+    tritticoAtarax: null,
+    lithiumMg: null
+  };
+
+  for (const row of eligibleRows) {
+    for (const key of Object.keys(snapshot)) {
+      const value = row.medications?.[key];
+      if (Number.isFinite(value)) snapshot[key] = value;
+    }
+  }
+
+  return snapshot;
 }
 
 async function createReport(rows) {
