@@ -63,16 +63,42 @@
 
       <section class="panel comparison-panel">
         <div class="panel-title">
-          <h2 id="comparisonTitle">Январь и текущий месяц</h2>
+          <h2 id="comparisonTitle">Что изменилось в состоянии с января?</h2>
           <span id="comparisonPeriod">-</span>
         </div>
         <div id="comparisonCards" class="comparison-cards"></div>
       </section>
 
+      <section class="panel monthly-panel">
+        <div class="panel-title">
+          <h2>Средний индекс дня по месяцам</h2>
+          <span>целевая зона 5-6</span>
+        </div>
+        <div id="monthlyChart" class="monthly-chart" aria-label="Средний индекс дня по месяцам"></div>
+      </section>
+
+      <section class="insight-grid">
+        <section class="panel insight-panel">
+          <div class="panel-title">
+            <h2>Энергия и препараты</h2>
+            <span>корреляция за весь период</span>
+          </div>
+          <div id="energyMedicationInsight" class="insight-content"></div>
+        </section>
+
+        <section class="panel insight-panel">
+          <div class="panel-title">
+            <h2>Сон и препараты</h2>
+            <span>текущий месяц + весь период</span>
+          </div>
+          <div id="sleepInsight" class="insight-content"></div>
+        </section>
+      </section>
+
       <section class="panel chart-panel">
         <div class="panel-title">
           <div>
-            <h2>Динамика</h2>
+            <h2>Динамика отдельных показателей</h2>
             <span id="periodLabel">-</span>
           </div>
           <div class="line-legend" aria-label="Показатели графика">

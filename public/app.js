@@ -8,14 +8,23 @@ const answerEl = document.querySelector("#answer");
 const comparisonCardsEl = document.querySelector("#comparisonCards");
 const comparisonTitleEl = document.querySelector("#comparisonTitle");
 const comparisonPeriodEl = document.querySelector("#comparisonPeriod");
+const monthlyChartEl = document.querySelector("#monthlyChart");
+const energyMedicationInsightEl = document.querySelector("#energyMedicationInsight");
+const sleepInsightEl = document.querySelector("#sleepInsight");
 
 const series = [
-  { key: "energy", label: "Энергия", color: "#236f5d" },
-  { key: "joy", label: "Радость", color: "#b45b73" },
-  { key: "interest", label: "Интерес", color: "#4d7fa3" }
+  { key: "energy", label: "Энергия", color: "#c94f7c" },
+  { key: "joy", label: "Радость", color: "#e58eaa" },
+  { key: "interest", label: "Интерес", color: "#8f5f88" }
 ];
 const chartMinValue = 0;
 const chartMaxValue = 10;
+const medicationFields = [
+  { key: "zoloft", label: "Золофт" },
+  { key: "zilaxera", label: "Зилаксера" },
+  { key: "tritticoAtarax", label: "Триттико / Атаракс" },
+  { key: "lithiumMg", label: "Литий" }
+];
 
 let currentRows = [];
 
@@ -218,8 +227,8 @@ function renderMonthlyComparison(rows, today) {
   const currentRows = rows.filter((row) => row.date?.startsWith(currentMonthKey) && (!today || row.date <= today));
   const currentMonthName = getMonthName(currentMonthKey);
 
-  comparisonTitleEl.textContent = `Январь и ${currentMonthName}`;
-  comparisonPeriodEl.textContent = `${januaryRows.length} дн. · ${currentRows.length} дн.`;
+  comparisonTitleEl.textContent = "Что изменилось в состоянии с января?";
+  comparisonPeriodEl.textContent = `Январь / ${currentMonthName}: ${januaryRows.length} / ${currentRows.length} дн.`;
 
   if (!januaryRows.length || !currentRows.length) {
     comparisonCardsEl.innerHTML = '<p class="empty-state">Недостаточно данных для сравнения января с текущим месяцем.</p>';
@@ -235,6 +244,131 @@ function renderMonthlyComparison(rows, today) {
   ];
 
   comparisonCardsEl.innerHTML = metricCards.join("");
+}
+
+function renderMonthlyAverages(rows) {
+  const byMonth = new Map();
+  rows.forEach((row) => {
+    if (!row.date || !Number.isFinite(row.dayIndex)) return;
+    const monthKey = row.date.slice(0, 7);
+    if (!byMonth.has(monthKey)) byMonth.set(monthKey, []);
+    byMonth.get(monthKey).push(row.dayIndex);
+  });
+
+  const monthly = Array.from(byMonth.entries()).map(([monthKey, values]) => ({
+    monthKey,
+    label: getShortMonthLabel(monthKey),
+    average: values.reduce((sum, value) => sum + value, 0) / values.length,
+    days: values.length
+  }));
+
+  if (!monthly.length) {
+    monthlyChartEl.textContent = "Нет данных для помесячного графика.";
+    return;
+  }
+
+  monthlyChartEl.innerHTML = `
+    <div class="monthly-target" aria-hidden="true">
+      <span>5-6</span>
+    </div>
+    <div class="monthly-bars">
+      ${monthly.map((month) => `
+        <div class="monthly-column" title="${month.label}: ${month.average.toFixed(1)} (${month.days} дн.)">
+          <span class="monthly-value">${month.average.toFixed(1)}</span>
+          <div class="monthly-bar ${month.average >= 5 && month.average <= 6 ? "in-target" : ""}" style="--height: ${month.average * 10}%"></div>
+          <span class="monthly-label">${month.label}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderInsights(rows, today) {
+  renderEnergyMedicationInsight(rows);
+  renderSleepInsight(rows, today);
+}
+
+function renderEnergyMedicationInsight(rows) {
+  const results = medicationFields.map((medication) => ({
+    ...medication,
+    result: calculateCorrelation(rows, (row) => row.energy, (row) => row.medications?.[medication.key])
+  }));
+  const meaningful = results
+    .filter((item) => item.result.r !== null && Math.abs(item.result.r) >= 0.3)
+    .sort((a, b) => Math.abs(b.result.r) - Math.abs(a.result.r));
+
+  const summary = meaningful.length
+    ? `Наиболее заметная связь: ${meaningful[0].label}, r=${meaningful[0].result.r.toFixed(2)}.`
+    : "Заметной корреляции энергии с дозировками не обнаружено.";
+
+  energyMedicationInsightEl.innerHTML = `
+    <p class="insight-summary">${summary}</p>
+    <div class="correlation-list">
+      ${results.map((item) => renderCorrelationRow(item.label, item.result)).join("")}
+    </div>
+    <p class="insight-note">Корреляция показывает совместное изменение, а не причину.</p>
+  `;
+}
+
+function renderSleepInsight(rows, today) {
+  const currentMonthKey = String(today || rows.at(-1)?.date || "").slice(0, 7);
+  const monthRows = rows.filter((row) => row.date?.startsWith(currentMonthKey) && (!today || row.date <= today));
+  const sleepDays = monthRows.filter((row) => row.sleepProblem).length;
+  const share = monthRows.length ? Math.round((sleepDays / monthRows.length) * 100) : null;
+  const results = medicationFields.map((medication) => ({
+    ...medication,
+    result: calculateCorrelation(rows, (row) => (row.sleepProblem ? 1 : 0), (row) => row.medications?.[medication.key])
+  }));
+  const meaningful = results
+    .filter((item) => item.result.r !== null && Math.abs(item.result.r) >= 0.3)
+    .sort((a, b) => Math.abs(b.result.r) - Math.abs(a.result.r));
+
+  sleepInsightEl.innerHTML = `
+    <div class="sleep-share">
+      <strong>${share === null ? "-" : `${share}%`}</strong>
+      <span>дней с проблемами сна в ${getMonthPrepositionalName(currentMonthKey)}</span>
+      <small>${sleepDays} из ${monthRows.length} заполненных дней</small>
+    </div>
+    <p class="insight-summary">${meaningful.length
+      ? `Есть заметная связь с ${meaningful[0].label}: r=${meaningful[0].result.r.toFixed(2)}.`
+      : "Заметной корреляции сна с препаратами за весь период не обнаружено."}</p>
+    <div class="correlation-list">
+      ${results.map((item) => renderCorrelationRow(item.label, item.result)).join("")}
+    </div>
+  `;
+}
+
+function calculateCorrelation(rows, getFirst, getSecond) {
+  const pairs = rows
+    .map((row) => [getFirst(row), getSecond(row)])
+    .filter(([first, second]) => Number.isFinite(first) && Number.isFinite(second));
+  if (pairs.length < 3) return { r: null, n: pairs.length, note: "мало данных" };
+  if (new Set(pairs.map((pair) => pair[1])).size < 2) {
+    return { r: null, n: pairs.length, note: "доза не менялась" };
+  }
+
+  const meanFirst = pairs.reduce((sum, pair) => sum + pair[0], 0) / pairs.length;
+  const meanSecond = pairs.reduce((sum, pair) => sum + pair[1], 0) / pairs.length;
+  let numerator = 0;
+  let firstSquares = 0;
+  let secondSquares = 0;
+  pairs.forEach(([first, second]) => {
+    const firstDelta = first - meanFirst;
+    const secondDelta = second - meanSecond;
+    numerator += firstDelta * secondDelta;
+    firstSquares += firstDelta ** 2;
+    secondSquares += secondDelta ** 2;
+  });
+  const denominator = Math.sqrt(firstSquares * secondSquares);
+  return denominator ? { r: numerator / denominator, n: pairs.length } : { r: null, n: pairs.length, note: "нет вариации" };
+}
+
+function renderCorrelationRow(label, result) {
+  if (result.r === null) {
+    return `<div class="correlation-row"><span>${label}</span><small>${result.note}</small></div>`;
+  }
+  const strength = Math.abs(result.r) >= 0.5 ? "заметная" : Math.abs(result.r) >= 0.3 ? "умеренная" : "слабая";
+  return `<div class="correlation-row"><span>${label}</span><strong>r=${result.r.toFixed(2)}</strong><small>${strength}, n=${result.n}</small></div>`;
 }
 
 function createMetricComparisonCard(label, baselineRows, currentRows, key) {
@@ -284,15 +418,18 @@ function createMedicationComparisonCard(rows, baselineRows, currentRows) {
     tritticoAtarax: "Триттико / Атаракс",
     lithiumMg: "Литий"
   };
-  const changes = Object.keys(labels)
-    .filter((key) => before[key] !== after[key])
-    .map((key) => `${labels[key]}: ${formatMedicationValue(key, before[key])} → ${formatMedicationValue(key, after[key])}`);
-  const text = changes.length ? changes.join("; ") : "Без изменений";
+  const medicationRows = Object.keys(labels).map((key) => {
+    const beforeValue = formatMedicationValue(key, before[key]);
+    const afterValue = formatMedicationValue(key, after[key]);
+    const value = before[key] === after[key] ? `${afterValue} (без изменений)` : `${beforeValue} → ${afterValue}`;
+    return `<span class="medication-change"><b>${labels[key]}</b>: ${value}</span>`;
+  });
+  const changed = Object.keys(labels).some((key) => before[key] !== after[key]);
 
   return `
-    <article class="comparison-card medication-comparison ${changes.length ? "changed" : "neutral"}">
+    <article class="comparison-card medication-comparison ${changed ? "changed" : "neutral"}">
       <span>Препараты</span>
-      <strong>${text}</strong>
+      <div class="medication-change-list">${medicationRows.join("")}</div>
       <small>На конец января → на текущую дату</small>
     </article>
   `;
@@ -316,6 +453,21 @@ function getMonthName(monthKey) {
     "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"
   ];
   return names[month - 1] || "текущий месяц";
+}
+
+function getShortMonthLabel(monthKey) {
+  const [year, month] = monthKey.split("-");
+  const names = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+  return `${names[Number(month) - 1] || month} ${year.slice(2)}`;
+}
+
+function getMonthPrepositionalName(monthKey) {
+  const month = Number(monthKey.split("-")[1]);
+  const names = [
+    "январе", "феврале", "марте", "апреле", "мае", "июне",
+    "июле", "августе", "сентябре", "октябре", "ноябре", "декабре"
+  ];
+  return names[month - 1] || "текущем месяце";
 }
 
 async function createReport(rows) {
@@ -386,6 +538,8 @@ async function init() {
     renderChart(currentRows);
     renderMedications(currentRows);
     renderMonthlyComparison(currentRows, data.today);
+    renderMonthlyAverages(currentRows);
+    renderInsights(currentRows, data.today);
 
     reportButton.addEventListener("click", () => createReport(currentRows));
     askForm.addEventListener("submit", (event) => {
