@@ -352,10 +352,12 @@ function buildWeeklyEnergyStats(rows) {
     if (!row.date || !Number.isFinite(row.energy)) return;
     const startDate = getMondayIso(row.date);
     if (!groups.has(startDate)) groups.set(startDate, []);
-    groups.get(startDate).push(row.energy);
+    groups.get(startDate).push(row);
   });
 
-  return Array.from(groups.entries()).map(([startDate, values]) => {
+  return Array.from(groups.entries()).map(([startDate, weekRows]) => {
+    const values = weekRows.map((row) => row.energy);
+    const lithiumValues = weekRows.map((row) => row.medications?.lithiumMg).filter(Number.isFinite);
     const averageValue = values.reduce((sum, value) => sum + value, 0) / values.length;
     const deviation = Math.sqrt(values.reduce((sum, value) => sum + (value - averageValue) ** 2, 0) / values.length);
     const endDate = addDaysIso(startDate, 6);
@@ -368,7 +370,10 @@ function buildWeeklyEnergyStats(rows) {
       max: Math.max(...values),
       average: averageValue,
       deviation,
-      days: values.length
+      days: values.length,
+      lithiumAverage: lithiumValues.length
+        ? lithiumValues.reduce((sum, value) => sum + value, 0) / lithiumValues.length
+        : null
     };
   });
 }
@@ -380,9 +385,19 @@ function buildWeeklyExplanation(weeks) {
   const volatile = [...comparable].sort((first, second) => second.deviation - first.deviation || (second.max - second.min) - (first.max - first.min))[0];
   const latest = weeks.at(-1);
   const basisText = completeEnough.length ? "Сравниваются недели с 4 и более записями." : "Сравнение предварительное: заполненных недель пока мало.";
+  const lithiumCorrelation = calculateWeeklyLithiumVariabilityCorrelation(weeks);
 
   return `
     <p class="weekly-summary">${basisText}</p>
+    <article class="weekly-analysis">
+      <span>Последняя неделя</span>
+      <strong>${latest.label}</strong>
+      <p>${describeLatestWeeklyVariability(latest, comparable)}</p>
+    </article>
+    <article class="weekly-analysis lithium">
+      <span>Колебания и литий за весь период</span>
+      <p>${describeWeeklyLithiumCorrelation(lithiumCorrelation)}</p>
+    </article>
     <article class="weekly-callout stable">
       <span>Более устойчиво</span>
       <strong>${stable.label}</strong>
@@ -393,8 +408,58 @@ function buildWeeklyExplanation(weeks) {
       <strong>${volatile.label}</strong>
       <small>диапазон ${volatile.min.toFixed(1)}-${volatile.max.toFixed(1)}, отклонение ±${volatile.deviation.toFixed(1)}</small>
     </article>
-    <p class="weekly-latest">Последняя неделя: средняя энергия ${latest.average.toFixed(1)} по ${latest.days} дн.</p>
   `;
+}
+
+function describeLatestWeeklyVariability(latest, comparable) {
+  const sorted = [...comparable].sort((first, second) => first.deviation - second.deviation);
+  const rank = sorted.findIndex((week) => week.startDate === latest.startDate);
+  let comparison = "Неделя пока неполная, сравнение предварительное.";
+  if (rank !== -1) {
+    if (rank < sorted.length / 3) {
+      comparison = "Энергия была устойчивее, чем в большинстве сравнимых недель.";
+    } else if (rank >= (sorted.length * 2) / 3) {
+      comparison = "Энергия колебалась сильнее, чем в большинстве сравнимых недель.";
+    } else {
+      comparison = "Колебания энергии находятся около обычного уровня.";
+    }
+  }
+  return `Средняя энергия ${latest.average.toFixed(1)}, диапазон ${latest.min.toFixed(1)}-${latest.max.toFixed(1)}, отклонение ±${latest.deviation.toFixed(1)} по ${latest.days} дн. ${comparison}`;
+}
+
+function calculateWeeklyLithiumVariabilityCorrelation(weeks) {
+  const comparable = weeks.filter((week) => week.days >= 4 && Number.isFinite(week.lithiumAverage));
+  const pairs = comparable.map((week) => [week.deviation, week.lithiumAverage]);
+  if (pairs.length < 3) return { r: null, n: pairs.length, note: "Недостаточно заполненных недель для расчета." };
+  if (new Set(pairs.map((pair) => pair[1])).size < 2) {
+    return { r: null, n: pairs.length, note: "Доза лития по неделям не менялась, корреляцию посчитать нельзя." };
+  }
+
+  const meanDeviation = pairs.reduce((sum, pair) => sum + pair[0], 0) / pairs.length;
+  const meanLithium = pairs.reduce((sum, pair) => sum + pair[1], 0) / pairs.length;
+  let numerator = 0;
+  let deviationSquares = 0;
+  let lithiumSquares = 0;
+  pairs.forEach(([deviation, lithium]) => {
+    const deviationDelta = deviation - meanDeviation;
+    const lithiumDelta = lithium - meanLithium;
+    numerator += deviationDelta * lithiumDelta;
+    deviationSquares += deviationDelta ** 2;
+    lithiumSquares += lithiumDelta ** 2;
+  });
+  const denominator = Math.sqrt(deviationSquares * lithiumSquares);
+  return denominator
+    ? { r: numerator / denominator, n: pairs.length }
+    : { r: null, n: pairs.length, note: "Недостаточно вариативности для расчета." };
+}
+
+function describeWeeklyLithiumCorrelation(result) {
+  if (result.r === null) return result.note;
+  const direction = result.r < 0
+    ? "более высокая доза сопровождалась меньшими колебаниями"
+    : "более высокая доза сопровождалась большими колебаниями";
+  const strength = Math.abs(result.r) >= 0.5 ? "Заметная" : Math.abs(result.r) >= 0.3 ? "Умеренная" : "Слабая";
+  return `${strength} связь: r=${result.r.toFixed(2)}, n=${result.n}; ${direction}. Это не доказывает причинный эффект.`;
 }
 
 function getMondayIso(isoDate) {
