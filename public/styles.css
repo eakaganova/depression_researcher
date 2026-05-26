@@ -255,6 +255,7 @@ button:hover {
 }
 
 .monthly-chart {
+  --monthly-plot-height: 180px;
   position: relative;
   min-height: 250px;
   padding: 14px 8px 0 28px;
@@ -262,10 +263,10 @@ button:hover {
 
 .monthly-axis {
   position: absolute;
-  top: 34px;
   bottom: 42px;
   left: 0;
   width: 25px;
+  height: var(--monthly-plot-height);
 }
 
 .monthly-axis span {
@@ -280,8 +281,8 @@ button:hover {
   position: absolute;
   left: 28px;
   right: 8px;
-  bottom: calc(42px + 50%);
-  height: 10%;
+  bottom: calc(42px + var(--monthly-plot-height) * 0.5);
+  height: calc(var(--monthly-plot-height) * 0.1);
   border-top: 1px dashed #dcadc0;
   border-bottom: 1px dashed #dcadc0;
   background: rgba(229, 142, 170, 0.16);
@@ -310,7 +311,7 @@ button:hover {
 
 .monthly-column {
   display: grid;
-  grid-template-rows: 180px 30px;
+  grid-template-rows: var(--monthly-plot-height) 30px;
   align-items: end;
   justify-items: center;
   flex: 1 0 62px;
@@ -354,8 +355,8 @@ button:hover {
 .monthly-trend {
   position: absolute;
   left: 8px;
-  top: 20px;
-  height: 160px;
+  bottom: 30px;
+  height: var(--monthly-plot-height);
   width: calc(100% - 28px);
   overflow: visible;
   pointer-events: none;
@@ -451,17 +452,31 @@ button:hover {
 
 .weekly-mean {
   position: absolute;
-  bottom: calc(var(--mean) - 9px);
+  bottom: calc(var(--mean) - 5px);
   left: 50%;
-  min-width: 34px;
   transform: translateX(-50%);
-  border-radius: 999px;
   background: var(--accent);
-  color: #fff;
-  padding: 3px 5px;
+  border: 2px solid #fffafb;
+  border-radius: 50%;
+  width: 11px;
+  height: 11px;
+}
+
+.weekly-deviation {
+  position: absolute;
+  bottom: calc(var(--top) + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 38px;
+  border: 1px solid #e8bfce;
+  border-radius: 999px;
+  background: #fffafb;
+  color: var(--accent-strong);
+  padding: 2px 5px;
   font-size: 11px;
   font-weight: 800;
   text-align: center;
+  white-space: nowrap;
 }
 
 .weekly-column small {
@@ -495,10 +510,26 @@ button:hover {
 
 .weekly-legend b {
   display: inline-block;
-  width: 26px;
-  height: 14px;
-  border-radius: 999px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #fffafb;
+  border-radius: 50%;
   background: var(--accent);
+}
+
+.weekly-legend em {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 29px;
+  height: 18px;
+  border: 1px solid #e8bfce;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  background: #fffafb;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
 }
 
 .weekly-explanation {
@@ -544,39 +575,6 @@ button:hover {
   color: var(--ink);
   font-size: 13px;
   line-height: 1.45;
-}
-
-.weekly-callout {
-  border: 1px solid #f0dde5;
-  border-left: 3px solid #c94f7c;
-  border-radius: 8px;
-  padding: 10px;
-}
-
-.weekly-callout.stable {
-  border-left-color: #e58eaa;
-}
-
-.weekly-callout.volatile {
-  border-left-color: #8f5f88;
-}
-
-.weekly-callout span {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  margin-bottom: 4px;
-}
-
-.weekly-callout strong {
-  display: block;
-  font-size: 15px;
-  margin-bottom: 5px;
-}
-
-.weekly-callout small {
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .insight-grid {

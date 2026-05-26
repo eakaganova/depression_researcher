@@ -249,6 +249,7 @@ function renderMonthlyComparison(rows, today) {
 }
 
 function renderMonthlyAverages(rows) {
+  const plotHeight = 180;
   const byMonth = new Map();
   rows.forEach((row) => {
     if (!row.date || !Number.isFinite(row.energy)) return;
@@ -279,9 +280,9 @@ function renderMonthlyAverages(rows) {
       <span>желаемый диапазон 5-6</span>
     </div>
     <div class="monthly-bars">
-      <svg class="monthly-trend" viewBox="0 0 ${monthly.length * 76} 160" preserveAspectRatio="none" aria-label="Линия тренда">
-        <polyline points="${trendValues.map((value, index) => `${index * 76 + 38},${160 - value * 16}`).join(" ")}"></polyline>
-        ${trendValues.map((value, index) => `<circle cx="${index * 76 + 38}" cy="${160 - value * 16}" r="3"></circle>`).join("")}
+      <svg class="monthly-trend" viewBox="0 0 ${monthly.length * 76} ${plotHeight}" preserveAspectRatio="none" aria-label="Линия тренда">
+        <polyline points="${trendValues.map((value, index) => `${index * 76 + 38},${plotHeight - value * (plotHeight / 10)}`).join(" ")}"></polyline>
+        ${trendValues.map((value, index) => `<circle cx="${index * 76 + 38}" cy="${plotHeight - value * (plotHeight / 10)}" r="3"></circle>`).join("")}
       </svg>
       ${monthly.map((month) => `
         <div class="monthly-column" title="${month.label}: ${month.average.toFixed(1)} (${month.days} дн.)">
@@ -330,15 +331,17 @@ function renderWeeklyEnergyVariability(rows) {
         <div class="weekly-column" title="${week.label}: ${week.min.toFixed(1)}-${week.max.toFixed(1)}, среднее ${week.average.toFixed(1)}, отклонение ±${week.deviation.toFixed(1)}">
           <div class="weekly-plot">
             <div class="weekly-range" style="--low: ${week.min * 10}%; --spread: ${(week.max - week.min) * 10}%"></div>
-            <span class="weekly-mean" style="--mean: ${week.average * 10}%">${week.average.toFixed(1)}</span>
+            <span class="weekly-deviation" style="--top: ${week.max * 10}%">±${week.deviation.toFixed(1)}</span>
+            <span class="weekly-mean" style="--mean: ${week.average * 10}%"></span>
           </div>
           <small>${week.shortLabel}</small>
         </div>
       `).join("")}
     </div>
     <div class="weekly-legend">
-      <span><i></i>минимум-максимум</span>
-      <span><b></b>среднее</span>
+      <span><i></i>диапазон минимум-максимум</span>
+      <span><em>±</em>отклонение</span>
+      <span><b></b>точка среднего</span>
     </div>
   `;
 
@@ -381,8 +384,6 @@ function buildWeeklyEnergyStats(rows) {
 function buildWeeklyExplanation(weeks) {
   const completeEnough = weeks.filter((week) => week.days >= 4);
   const comparable = completeEnough.length ? completeEnough : weeks;
-  const stable = [...comparable].sort((first, second) => first.deviation - second.deviation || (first.max - first.min) - (second.max - second.min))[0];
-  const volatile = [...comparable].sort((first, second) => second.deviation - first.deviation || (second.max - second.min) - (first.max - first.min))[0];
   const latest = weeks.at(-1);
   const basisText = completeEnough.length ? "Сравниваются недели с 4 и более записями." : "Сравнение предварительное: заполненных недель пока мало.";
   const lithiumCorrelation = calculateWeeklyLithiumVariabilityCorrelation(weeks);
@@ -397,16 +398,6 @@ function buildWeeklyExplanation(weeks) {
     <article class="weekly-analysis lithium">
       <span>Колебания и литий за весь период</span>
       <p>${describeWeeklyLithiumCorrelation(lithiumCorrelation)}</p>
-    </article>
-    <article class="weekly-callout stable">
-      <span>Более устойчиво</span>
-      <strong>${stable.label}</strong>
-      <small>диапазон ${stable.min.toFixed(1)}-${stable.max.toFixed(1)}, отклонение ±${stable.deviation.toFixed(1)}</small>
-    </article>
-    <article class="weekly-callout volatile">
-      <span>Больше колебаний</span>
-      <strong>${volatile.label}</strong>
-      <small>диапазон ${volatile.min.toFixed(1)}-${volatile.max.toFixed(1)}, отклонение ±${volatile.deviation.toFixed(1)}</small>
     </article>
   `;
 }
