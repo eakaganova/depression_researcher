@@ -257,26 +257,44 @@ button:hover {
 .monthly-chart {
   position: relative;
   min-height: 250px;
-  padding: 14px 8px 0;
+  padding: 14px 8px 0 28px;
+}
+
+.monthly-axis {
+  position: absolute;
+  top: 34px;
+  bottom: 42px;
+  left: 0;
+  width: 25px;
+}
+
+.monthly-axis span {
+  position: absolute;
+  bottom: var(--axis-position);
+  color: var(--muted);
+  font-size: 11px;
+  transform: translateY(50%);
 }
 
 .monthly-target {
   position: absolute;
-  left: 8px;
+  left: 28px;
   right: 8px;
   bottom: calc(42px + 50%);
   height: 10%;
   border-top: 1px dashed #dcadc0;
   border-bottom: 1px dashed #dcadc0;
-  background: rgba(229, 142, 170, 0.08);
+  background: rgba(229, 142, 170, 0.16);
 }
 
 .monthly-target span {
   position: absolute;
-  top: -20px;
+  top: 2px;
   right: 0;
   color: var(--muted);
   font-size: 12px;
+  padding: 1px 5px;
+  background: rgba(255, 250, 251, 0.8);
 }
 
 .monthly-bars {
@@ -286,13 +304,13 @@ button:hover {
   align-items: end;
   gap: 14px;
   min-height: 222px;
-  padding: 0 20px;
+  padding: 0 20px 0 8px;
   overflow-x: auto;
 }
 
 .monthly-column {
   display: grid;
-  grid-template-rows: 20px 160px 30px;
+  grid-template-rows: 180px 30px;
   align-items: end;
   justify-items: center;
   flex: 1 0 62px;
@@ -300,12 +318,20 @@ button:hover {
 }
 
 .monthly-value {
-  color: var(--muted);
-  font-size: 13px;
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(255, 250, 251, 0.9);
+  color: var(--ink);
+  padding: 2px 7px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .monthly-bar {
+  position: relative;
   align-self: end;
   width: min(62px, 100%);
   height: var(--height);
@@ -323,6 +349,203 @@ button:hover {
   color: var(--muted);
   font-size: 13px;
   white-space: nowrap;
+}
+
+.monthly-trend {
+  position: absolute;
+  left: 8px;
+  top: 20px;
+  height: 160px;
+  width: calc(100% - 28px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.monthly-trend polyline {
+  fill: none;
+  stroke: #713b63;
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+
+.monthly-trend circle {
+  fill: #713b63;
+}
+
+.weekly-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(250px, 0.75fr);
+  gap: 18px;
+}
+
+.weekly-chart {
+  position: relative;
+  min-height: 292px;
+  padding: 16px 8px 32px 30px;
+}
+
+.weekly-axis {
+  position: absolute;
+  top: 16px;
+  bottom: 70px;
+  left: 0;
+  width: 25px;
+}
+
+.weekly-axis span {
+  position: absolute;
+  bottom: var(--axis-position);
+  color: var(--muted);
+  font-size: 11px;
+  transform: translateY(50%);
+}
+
+.weekly-target {
+  position: absolute;
+  top: calc(16px + 40%);
+  bottom: calc(70px + 50%);
+  left: 30px;
+  right: 8px;
+  border-top: 1px dashed #dcadc0;
+  border-bottom: 1px dashed #dcadc0;
+  background: rgba(229, 142, 170, 0.1);
+}
+
+.weekly-bars {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  height: 238px;
+  padding-right: 8px;
+  overflow-x: auto;
+}
+
+.weekly-column {
+  display: grid;
+  grid-template-rows: 210px 26px;
+  flex: 0 0 42px;
+  align-items: end;
+  justify-items: center;
+}
+
+.weekly-plot {
+  position: relative;
+  width: 100%;
+  height: 196px;
+}
+
+.weekly-range {
+  position: absolute;
+  bottom: var(--low);
+  left: 50%;
+  width: 10px;
+  min-height: 4px;
+  height: var(--spread);
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(201, 79, 124, 0.35);
+  border: 1px solid rgba(201, 79, 124, 0.4);
+}
+
+.weekly-mean {
+  position: absolute;
+  bottom: calc(var(--mean) - 9px);
+  left: 50%;
+  min-width: 34px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  padding: 3px 5px;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.weekly-column small {
+  color: var(--muted);
+  font-size: 11px;
+  transform: rotate(-35deg);
+  white-space: nowrap;
+}
+
+.weekly-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.weekly-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.weekly-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(201, 79, 124, 0.35);
+}
+
+.weekly-legend b {
+  display: inline-block;
+  width: 26px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.weekly-explanation {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.weekly-summary,
+.weekly-latest {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.weekly-callout {
+  border: 1px solid #f0dde5;
+  border-left: 3px solid #c94f7c;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.weekly-callout.stable {
+  border-left-color: #e58eaa;
+}
+
+.weekly-callout.volatile {
+  border-left-color: #8f5f88;
+}
+
+.weekly-callout span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.weekly-callout strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 5px;
+}
+
+.weekly-callout small {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .insight-grid {
@@ -593,7 +816,8 @@ textarea:focus {
   .summary,
   .top-grid,
   .comparison-cards,
-  .insight-grid {
+  .insight-grid,
+  .weekly-layout {
     grid-template-columns: 1fr;
   }
 

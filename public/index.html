@@ -61,20 +61,23 @@
         </section>
       </section>
 
-      <section class="panel comparison-panel">
-        <div class="panel-title">
-          <h2 id="comparisonTitle">Что изменилось в состоянии с января?</h2>
-          <span id="comparisonPeriod">-</span>
-        </div>
-        <div id="comparisonCards" class="comparison-cards"></div>
-      </section>
-
       <section class="panel monthly-panel">
         <div class="panel-title">
-          <h2>Средний индекс дня по месяцам</h2>
+          <h2>Средний уровень энергии по месяцам</h2>
           <span>целевая зона 5-6</span>
         </div>
-        <div id="monthlyChart" class="monthly-chart" aria-label="Средний индекс дня по месяцам"></div>
+        <div id="monthlyChart" class="monthly-chart" aria-label="Средний уровень энергии по месяцам"></div>
+      </section>
+
+      <section class="panel weekly-panel">
+        <div class="panel-title">
+          <h2>Колебания энергии по неделям</h2>
+          <span>диапазон и среднее</span>
+        </div>
+        <div class="weekly-layout">
+          <div id="weeklyChart" class="weekly-chart" aria-label="Колебания энергии по неделям"></div>
+          <div id="weeklyExplanation" class="weekly-explanation"></div>
+        </div>
       </section>
 
       <section class="insight-grid">
@@ -116,6 +119,14 @@
           <span>без медицинских назначений</span>
         </div>
         <pre id="report">Нажми кнопку сверху, чтобы собрать краткий отчет.</pre>
+      </section>
+
+      <section class="panel comparison-panel">
+        <div class="panel-title">
+          <h2 id="comparisonTitle">Что изменилось в состоянии с января?</h2>
+          <span id="comparisonPeriod">-</span>
+        </div>
+        <div id="comparisonCards" class="comparison-cards"></div>
       </section>
     </main>
 

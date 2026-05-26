@@ -9,6 +9,8 @@ const comparisonCardsEl = document.querySelector("#comparisonCards");
 const comparisonTitleEl = document.querySelector("#comparisonTitle");
 const comparisonPeriodEl = document.querySelector("#comparisonPeriod");
 const monthlyChartEl = document.querySelector("#monthlyChart");
+const weeklyChartEl = document.querySelector("#weeklyChart");
+const weeklyExplanationEl = document.querySelector("#weeklyExplanation");
 const energyMedicationInsightEl = document.querySelector("#energyMedicationInsight");
 const sleepInsightEl = document.querySelector("#sleepInsight");
 
@@ -249,10 +251,10 @@ function renderMonthlyComparison(rows, today) {
 function renderMonthlyAverages(rows) {
   const byMonth = new Map();
   rows.forEach((row) => {
-    if (!row.date || !Number.isFinite(row.dayIndex)) return;
+    if (!row.date || !Number.isFinite(row.energy)) return;
     const monthKey = row.date.slice(0, 7);
     if (!byMonth.has(monthKey)) byMonth.set(monthKey, []);
-    byMonth.get(monthKey).push(row.dayIndex);
+    byMonth.get(monthKey).push(row.energy);
   });
 
   const monthly = Array.from(byMonth.entries()).map(([monthKey, values]) => ({
@@ -263,24 +265,154 @@ function renderMonthlyAverages(rows) {
   }));
 
   if (!monthly.length) {
-    monthlyChartEl.textContent = "Нет данных для помесячного графика.";
+    monthlyChartEl.textContent = "Нет данных об энергии для помесячного графика.";
     return;
   }
 
+  const trendValues = calculateTrendValues(monthly.map((month) => month.average));
+
   monthlyChartEl.innerHTML = `
+    <div class="monthly-axis" aria-hidden="true">
+      ${[10, 8, 6, 4, 2, 0].map((value) => `<span style="--axis-position: ${value * 10}%">${value}</span>`).join("")}
+    </div>
     <div class="monthly-target" aria-hidden="true">
-      <span>5-6</span>
+      <span>желаемый диапазон 5-6</span>
     </div>
     <div class="monthly-bars">
+      <svg class="monthly-trend" viewBox="0 0 ${monthly.length * 76} 160" preserveAspectRatio="none" aria-label="Линия тренда">
+        <polyline points="${trendValues.map((value, index) => `${index * 76 + 38},${160 - value * 16}`).join(" ")}"></polyline>
+        ${trendValues.map((value, index) => `<circle cx="${index * 76 + 38}" cy="${160 - value * 16}" r="3"></circle>`).join("")}
+      </svg>
       ${monthly.map((month) => `
         <div class="monthly-column" title="${month.label}: ${month.average.toFixed(1)} (${month.days} дн.)">
-          <span class="monthly-value">${month.average.toFixed(1)}</span>
-          <div class="monthly-bar ${month.average >= 5 && month.average <= 6 ? "in-target" : ""}" style="--height: ${month.average * 10}%"></div>
+          <div class="monthly-bar ${month.average >= 5 && month.average <= 6 ? "in-target" : ""}" style="--height: ${month.average * 10}%">
+            <span class="monthly-value">${month.average.toFixed(1)}</span>
+          </div>
           <span class="monthly-label">${month.label}</span>
         </div>
       `).join("")}
     </div>
   `;
+}
+
+function calculateTrendValues(values) {
+  if (values.length < 2) return values;
+  const n = values.length;
+  const meanX = (n - 1) / 2;
+  const meanY = values.reduce((sum, value) => sum + value, 0) / n;
+  let numerator = 0;
+  let denominator = 0;
+  values.forEach((value, index) => {
+    numerator += (index - meanX) * (value - meanY);
+    denominator += (index - meanX) ** 2;
+  });
+  const slope = denominator ? numerator / denominator : 0;
+  const intercept = meanY - slope * meanX;
+  return values.map((value, index) => Math.min(10, Math.max(0, intercept + slope * index)));
+}
+
+function renderWeeklyEnergyVariability(rows) {
+  const weeks = buildWeeklyEnergyStats(rows);
+
+  if (!weeks.length) {
+    weeklyChartEl.textContent = "Нет данных об энергии по неделям.";
+    weeklyExplanationEl.textContent = "";
+    return;
+  }
+
+  weeklyChartEl.innerHTML = `
+    <div class="weekly-axis" aria-hidden="true">
+      ${[10, 8, 6, 4, 2, 0].map((value) => `<span style="--axis-position: ${value * 10}%">${value}</span>`).join("")}
+    </div>
+    <div class="weekly-target" aria-hidden="true"></div>
+    <div class="weekly-bars">
+      ${weeks.map((week) => `
+        <div class="weekly-column" title="${week.label}: ${week.min.toFixed(1)}-${week.max.toFixed(1)}, среднее ${week.average.toFixed(1)}, отклонение ±${week.deviation.toFixed(1)}">
+          <div class="weekly-plot">
+            <div class="weekly-range" style="--low: ${week.min * 10}%; --spread: ${(week.max - week.min) * 10}%"></div>
+            <span class="weekly-mean" style="--mean: ${week.average * 10}%">${week.average.toFixed(1)}</span>
+          </div>
+          <small>${week.shortLabel}</small>
+        </div>
+      `).join("")}
+    </div>
+    <div class="weekly-legend">
+      <span><i></i>минимум-максимум</span>
+      <span><b></b>среднее</span>
+    </div>
+  `;
+
+  weeklyExplanationEl.innerHTML = buildWeeklyExplanation(weeks);
+}
+
+function buildWeeklyEnergyStats(rows) {
+  const groups = new Map();
+
+  rows.forEach((row) => {
+    if (!row.date || !Number.isFinite(row.energy)) return;
+    const startDate = getMondayIso(row.date);
+    if (!groups.has(startDate)) groups.set(startDate, []);
+    groups.get(startDate).push(row.energy);
+  });
+
+  return Array.from(groups.entries()).map(([startDate, values]) => {
+    const averageValue = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const deviation = Math.sqrt(values.reduce((sum, value) => sum + (value - averageValue) ** 2, 0) / values.length);
+    const endDate = addDaysIso(startDate, 6);
+    return {
+      startDate,
+      endDate,
+      shortLabel: formatIsoShort(startDate),
+      label: `${formatIsoShort(startDate)}-${formatIsoShort(endDate)}`,
+      min: Math.min(...values),
+      max: Math.max(...values),
+      average: averageValue,
+      deviation,
+      days: values.length
+    };
+  });
+}
+
+function buildWeeklyExplanation(weeks) {
+  const completeEnough = weeks.filter((week) => week.days >= 4);
+  const comparable = completeEnough.length ? completeEnough : weeks;
+  const stable = [...comparable].sort((first, second) => first.deviation - second.deviation || (first.max - first.min) - (second.max - second.min))[0];
+  const volatile = [...comparable].sort((first, second) => second.deviation - first.deviation || (second.max - second.min) - (first.max - first.min))[0];
+  const latest = weeks.at(-1);
+  const basisText = completeEnough.length ? "Сравниваются недели с 4 и более записями." : "Сравнение предварительное: заполненных недель пока мало.";
+
+  return `
+    <p class="weekly-summary">${basisText}</p>
+    <article class="weekly-callout stable">
+      <span>Более устойчиво</span>
+      <strong>${stable.label}</strong>
+      <small>диапазон ${stable.min.toFixed(1)}-${stable.max.toFixed(1)}, отклонение ±${stable.deviation.toFixed(1)}</small>
+    </article>
+    <article class="weekly-callout volatile">
+      <span>Больше колебаний</span>
+      <strong>${volatile.label}</strong>
+      <small>диапазон ${volatile.min.toFixed(1)}-${volatile.max.toFixed(1)}, отклонение ±${volatile.deviation.toFixed(1)}</small>
+    </article>
+    <p class="weekly-latest">Последняя неделя: средняя энергия ${latest.average.toFixed(1)} по ${latest.days} дн.</p>
+  `;
+}
+
+function getMondayIso(isoDate) {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() - day + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function addDaysIso(isoDate, days) {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatIsoShort(isoDate) {
+  const [year, month, day] = isoDate.split("-");
+  return year ? `${day}.${month}` : isoDate;
 }
 
 function renderInsights(rows, today) {
@@ -539,6 +671,7 @@ async function init() {
     renderMedications(currentRows);
     renderMonthlyComparison(currentRows, data.today);
     renderMonthlyAverages(currentRows);
+    renderWeeklyEnergyVariability(currentRows);
     renderInsights(currentRows, data.today);
 
     reportButton.addEventListener("click", () => createReport(currentRows));
