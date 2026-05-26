@@ -5,6 +5,9 @@ const reportButton = document.querySelector("#reportButton");
 const askForm = document.querySelector("#askForm");
 const questionInput = document.querySelector("#questionInput");
 const answerEl = document.querySelector("#answer");
+const comparisonCardsEl = document.querySelector("#comparisonCards");
+const comparisonTitleEl = document.querySelector("#comparisonTitle");
+const comparisonPeriodEl = document.querySelector("#comparisonPeriod");
 
 const series = [
   { key: "energy", label: "Энергия", color: "#236f5d" },
@@ -186,7 +189,11 @@ function renderMedications(rows) {
 function getMedicationSnapshot(rows) {
   const todayRow = rows.find((row) => row.isToday);
   const currentDate = todayRow?.date || rows.at(-1)?.date;
-  const eligibleRows = rows.filter((row) => !currentDate || row.date <= currentDate);
+  return getMedicationSnapshotAtDate(rows, currentDate);
+}
+
+function getMedicationSnapshotAtDate(rows, date) {
+  const eligibleRows = rows.filter((row) => !date || row.date <= date);
   const snapshot = {
     zoloft: null,
     zilaxera: null,
@@ -202,6 +209,113 @@ function getMedicationSnapshot(rows) {
   }
 
   return snapshot;
+}
+
+function renderMonthlyComparison(rows, today) {
+  const currentMonthKey = String(today || rows.at(-1)?.date || "").slice(0, 7);
+  const januaryKey = "2026-01";
+  const januaryRows = rows.filter((row) => row.date?.startsWith(januaryKey));
+  const currentRows = rows.filter((row) => row.date?.startsWith(currentMonthKey) && (!today || row.date <= today));
+  const currentMonthName = getMonthName(currentMonthKey);
+
+  comparisonTitleEl.textContent = `Январь и ${currentMonthName}`;
+  comparisonPeriodEl.textContent = `${januaryRows.length} дн. · ${currentRows.length} дн.`;
+
+  if (!januaryRows.length || !currentRows.length) {
+    comparisonCardsEl.innerHTML = '<p class="empty-state">Недостаточно данных для сравнения января с текущим месяцем.</p>';
+    return;
+  }
+
+  const metricCards = [
+    createMetricComparisonCard("Энергия", januaryRows, currentRows, "energy"),
+    createMetricComparisonCard("Радость", januaryRows, currentRows, "joy"),
+    createMetricComparisonCard("Интерес", januaryRows, currentRows, "interest"),
+    createSleepComparisonCard(januaryRows, currentRows),
+    createMedicationComparisonCard(rows, januaryRows, currentRows)
+  ];
+
+  comparisonCardsEl.innerHTML = metricCards.join("");
+}
+
+function createMetricComparisonCard(label, baselineRows, currentRows, key) {
+  const before = numericAverage(baselineRows, key);
+  const after = numericAverage(currentRows, key);
+  const difference = after - before;
+  const changeLabel = Math.abs(difference) < 0.05
+    ? "не изменилась"
+    : difference > 0
+      ? `выросла на ${difference.toFixed(1)}`
+      : `снизилась на ${Math.abs(difference).toFixed(1)}`;
+  const tone = difference > 0.05 ? "positive" : difference < -0.05 ? "negative" : "neutral";
+
+  return `
+    <article class="comparison-card ${tone}">
+      <span>${label} в среднем</span>
+      <strong>${changeLabel}</strong>
+      <small>Январь ${before.toFixed(1)} → сейчас ${after.toFixed(1)}</small>
+    </article>
+  `;
+}
+
+function createSleepComparisonCard(baselineRows, currentRows) {
+  const before = baselineRows.filter((row) => row.sleepProblem).length;
+  const after = currentRows.filter((row) => row.sleepProblem).length;
+  const changeLabel = after === before
+    ? "без изменений"
+    : after < before
+      ? `реже на ${before - after} дн.`
+      : `чаще на ${after - before} дн.`;
+
+  return `
+    <article class="comparison-card ${after < before ? "positive" : after > before ? "negative" : "neutral"}">
+      <span>Проблемы со сном</span>
+      <strong>${changeLabel}</strong>
+      <small>Январь ${before} дн. → сейчас ${after} дн.</small>
+    </article>
+  `;
+}
+
+function createMedicationComparisonCard(rows, baselineRows, currentRows) {
+  const before = getMedicationSnapshotAtDate(rows, baselineRows.at(-1)?.date);
+  const after = getMedicationSnapshotAtDate(rows, currentRows.at(-1)?.date);
+  const labels = {
+    zoloft: "Золофт",
+    zilaxera: "Зилаксера",
+    tritticoAtarax: "Триттико / Атаракс",
+    lithiumMg: "Литий"
+  };
+  const changes = Object.keys(labels)
+    .filter((key) => before[key] !== after[key])
+    .map((key) => `${labels[key]}: ${formatMedicationValue(key, before[key])} → ${formatMedicationValue(key, after[key])}`);
+  const text = changes.length ? changes.join("; ") : "Без изменений";
+
+  return `
+    <article class="comparison-card medication-comparison ${changes.length ? "changed" : "neutral"}">
+      <span>Препараты</span>
+      <strong>${text}</strong>
+      <small>На конец января → на текущую дату</small>
+    </article>
+  `;
+}
+
+function numericAverage(rows, key) {
+  const values = rows.map((row) => row[key]).filter(Number.isFinite);
+  if (!values.length) return 0;
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function formatMedicationValue(key, value) {
+  if (!Number.isFinite(value)) return "-";
+  return key === "lithiumMg" ? `${value} мг` : `${value}`;
+}
+
+function getMonthName(monthKey) {
+  const month = Number(monthKey.split("-")[1]);
+  const names = [
+    "январь", "февраль", "март", "апрель", "май", "июнь",
+    "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"
+  ];
+  return names[month - 1] || "текущий месяц";
 }
 
 async function createReport(rows) {
@@ -271,6 +385,7 @@ async function init() {
     renderMetrics(currentRows, data.source || "-");
     renderChart(currentRows);
     renderMedications(currentRows);
+    renderMonthlyComparison(currentRows, data.today);
 
     reportButton.addEventListener("click", () => createReport(currentRows));
     askForm.addEventListener("submit", (event) => {

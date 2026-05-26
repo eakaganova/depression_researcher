@@ -38,6 +38,7 @@ app.get("/api/entries", async (request, response) => {
     const entries = await loadEntries();
     response.json({
       source: getConfiguredSourceName(),
+      today: getTodayIsoDate(),
       entries
     });
   } catch (error) {
