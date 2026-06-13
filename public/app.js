@@ -36,10 +36,10 @@ const customCorrelationFields = [
   { key: "joy", label: "Радость", getValue: (row) => row.joy },
   { key: "interest", label: "Интерес", getValue: (row) => row.interest },
   { key: "dayIndex", label: "Индекс дня", getValue: (row) => row.dayIndex },
-  { key: "sleepProblem", label: "Проблемы со сном ночью", getValue: (row) => (row.sleepProblem ? 1 : 0), binary: true },
-  { key: "importantEvent", label: "Что-то важное", getValue: (row) => hasFilledText(row.importantEvent) ? 1 : 0, binary: true },
-  { key: "officeTrip", label: "Поездка в офис", getValue: (row) => (row.officeTrip ? 1 : 0), binary: true },
-  { key: "meetings", label: "Встречи", getValue: (row) => hasFilledText(row.meetings) ? 1 : 0, binary: true },
+  { key: "sleepProblem", label: "Проблемы со сном ночью", getValue: (row) => booleanToNumber(row.sleepProblem), binary: true },
+  { key: "importantEvent", label: "Что-то важное", getValue: (row) => textFlagToNumber(row.importantEvent), binary: true },
+  { key: "officeTrip", label: "Поездка в офис", getValue: (row) => booleanToNumber(row.officeTrip), binary: true },
+  { key: "meetings", label: "Встречи", getValue: (row) => textFlagToNumber(row.meetings), binary: true },
   { key: "cycleDay", label: "День цикла", getValue: (row) => row.cycleDay },
   { key: "headache", label: "Головная боль / мигрень", getValue: (row) => row.headache },
   { key: "zoloft", label: "Золофт", getValue: (row) => row.medications?.zoloft },
@@ -188,7 +188,26 @@ function getImportantEvent(row) {
 
 function hasFilledText(value) {
   const text = String(value || "").trim().toLowerCase();
-  return Boolean(text && text !== "нет" && text !== "нд" && text !== "РЅРµС‚");
+  return Boolean(text && !isMissingText(text) && !isNegativeText(text));
+}
+
+function textFlagToNumber(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text || isMissingText(text)) return null;
+  return isNegativeText(text) ? 0 : 1;
+}
+
+function booleanToNumber(value) {
+  if (value === null || value === undefined) return null;
+  return value ? 1 : 0;
+}
+
+function isMissingText(text) {
+  return ["нд", "н/д", "нет данных", "РЅРґ", "n/a", "na", "-", "—"].includes(text);
+}
+
+function isNegativeText(text) {
+  return ["нет", "РЅРµС‚", "no", "false", "0"].includes(text);
 }
 
 function formatDate(row) {
@@ -668,11 +687,12 @@ function renderEnergyMedicationInsight(rows) {
 function renderSleepInsight(rows, today) {
   const currentMonthKey = String(today || rows.at(-1)?.date || "").slice(0, 7);
   const monthRows = rows.filter((row) => row.date?.startsWith(currentMonthKey) && (!today || row.date <= today));
-  const sleepDays = monthRows.filter((row) => row.sleepProblem).length;
-  const share = monthRows.length ? Math.round((sleepDays / monthRows.length) * 100) : null;
+  const filledSleepRows = monthRows.filter((row) => row.sleepProblem === true || row.sleepProblem === false);
+  const sleepDays = filledSleepRows.filter((row) => row.sleepProblem === true).length;
+  const share = filledSleepRows.length ? Math.round((sleepDays / filledSleepRows.length) * 100) : null;
   const results = medicationFields.map((medication) => ({
     ...medication,
-    result: calculateCorrelation(rows, (row) => (row.sleepProblem ? 1 : 0), (row) => row.medications?.[medication.key])
+    result: calculateCorrelation(rows, (row) => booleanToNumber(row.sleepProblem), (row) => row.medications?.[medication.key])
   }));
   const meaningful = results
     .filter((item) => item.result.r !== null && Math.abs(item.result.r) >= 0.3)
@@ -682,7 +702,7 @@ function renderSleepInsight(rows, today) {
     <div class="sleep-share">
       <strong>${share === null ? "-" : `${share}%`}</strong>
       <span>дней с проблемами сна в ${getMonthPrepositionalName(currentMonthKey)}</span>
-      <small>${sleepDays} из ${monthRows.length} заполненных дней</small>
+      <small>${sleepDays} из ${filledSleepRows.length} заполненных дней</small>
     </div>
     <p class="insight-summary">${meaningful.length
       ? `Есть заметная связь с ${meaningful[0].label}: r=${meaningful[0].result.r.toFixed(2)}.`

@@ -166,9 +166,9 @@ function rowToEntry(row, normalizedDate = normalizeDate(row[0]), headerMap = nul
     joy: parseNumber(getCell(row, headerMap, ["Радость", "СЂР°РґРѕСЃС‚СЊ"], 2)),
     interest: parseNumber(getCell(row, headerMap, ["Интерес", "РёРЅС‚РµСЂРµСЃ"], 3)),
     dayIndex: parseNumber(getCell(row, headerMap, ["Индекс дня", "Индекс", "РёРЅРґРµРєСЃ РґРЅСЏ", "РёРЅРґРµРєСЃ"], 4)),
-    sleepProblem: parseBoolean(getCell(row, headerMap, ["Проблемы со сном ночью", "Сон", "РїСЂРѕР±Р»РµРјС‹ СЃРѕ СЃРЅРѕРј РЅРѕС‡СЊСЋ", "СЃРѕРЅ"], 5)),
+    sleepProblem: parseOptionalBoolean(getCell(row, headerMap, ["Проблемы со сном ночью", "Сон", "РїСЂРѕР±Р»РµРјС‹ СЃРѕ СЃРЅРѕРј РЅРѕС‡СЊСЋ", "СЃРѕРЅ"], 5)),
     importantEvent: String(getCell(row, headerMap, ["Что-то важное", "Важное", "Событие", "С‡С‚Рѕ-С‚Рѕ РІР°Р¶РЅРѕРµ", "РІР°Р¶РЅРѕРµ", "СЃРѕР±С‹С‚РёРµ"], 6) || "").trim(),
-    officeTrip: parseBoolean(getCell(row, headerMap, ["Поездка в офис да нет", "Поездка в офис", "Офис"], 7)),
+    officeTrip: parseOptionalBoolean(getCell(row, headerMap, ["Поездка в офис да нет", "Поездка в офис", "Офис"], 7)),
     meetings: String(getCell(row, headerMap, ["Встречи"], 8) || "").trim(),
     cycleDay: parseNumber(getCell(row, headerMap, ["День цикла", "Цикл"], 9)),
     headache: parseNumber(getCell(row, headerMap, ["Головная боль мигрень", "Головная боль", "Мигрень"], 10)),
@@ -190,7 +190,7 @@ function rowToEntry(row, normalizedDate = normalizeDate(row[0]), headerMap = nul
     joy: parseNumber(getCell(row, headerMap, ["радость"], 2)),
     interest: parseNumber(getCell(row, headerMap, ["интерес"], 3)),
     dayIndex: parseNumber(getCell(row, headerMap, ["индекс дня", "индекс"], 4)),
-    sleepProblem: parseBoolean(getCell(row, headerMap, ["проблемы со сном ночью", "сон"], 5)),
+    sleepProblem: parseOptionalBoolean(getCell(row, headerMap, ["проблемы со сном ночью", "сон"], 5)),
     importantEvent: String(getCell(row, headerMap, ["что-то важное", "важное", "событие"], 6) || "").trim(),
     medications: {
       zoloft: parseNumber(getCell(row, headerMap, ["золофт"], 7)),
@@ -340,6 +340,22 @@ function parseBoolean(value) {
   return ["да", "yes", "true", "1"].includes(String(value || "").trim().toLowerCase());
 }
 
+function parseOptionalBoolean(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text || isMissingText(text)) return null;
+  if (isNegativeText(text)) return false;
+  if (["да", "yes", "true", "1", "+"].includes(text)) return true;
+  return null;
+}
+
+function isMissingText(text) {
+  return ["нд", "н/д", "нет данных", "РЅРґ", "n/a", "na", "-", "—"].includes(text);
+}
+
+function isNegativeText(text) {
+  return ["нет", "РЅРµС‚", "no", "false", "0"].includes(text);
+}
+
 function normalizePrivateKey(key) {
   return key.replace(/\\n/g, "\n");
 }
@@ -412,8 +428,8 @@ function buildAnalytics(entries) {
   const validEntries = entries.filter((entry) => Number.isFinite(entry.dayIndex));
   const dayIndex = validEntries.map((entry) => entry.dayIndex);
   const sortedByIndex = [...validEntries].sort((a, b) => a.dayIndex - b.dayIndex);
-  const sleepYes = validEntries.filter((entry) => entry.sleepProblem);
-  const sleepNo = validEntries.filter((entry) => !entry.sleepProblem);
+  const sleepYes = validEntries.filter((entry) => entry.sleepProblem === true);
+  const sleepNo = validEntries.filter((entry) => entry.sleepProblem === false);
 
   return {
     period: {
@@ -436,22 +452,22 @@ function buildAnalytics(entries) {
       energy: correlationFor(validEntries, (entry) => entry.energy),
       joy: correlationFor(validEntries, (entry) => entry.joy),
       interest: correlationFor(validEntries, (entry) => entry.interest),
-      sleepProblem: correlationFor(validEntries, (entry) => (entry.sleepProblem ? 1 : 0)),
+      sleepProblem: correlationFor(validEntries, (entry) => booleanToNumber(entry.sleepProblem)),
       zoloft: correlationFor(validEntries, (entry) => entry.medications.zoloft),
       fluoxetine: correlationFor(validEntries, (entry) => entry.medications.fluoxetine),
       zilaxera: correlationFor(validEntries, (entry) => entry.medications.zilaxera),
       tritticoAtarax: correlationFor(validEntries, (entry) => entry.medications.tritticoAtarax),
       lithiumMg: correlationFor(validEntries, (entry) => entry.medications.lithiumMg),
       euthyroxMg: correlationFor(validEntries, (entry) => entry.medications.euthyroxMg),
-      officeTrip: correlationFor(validEntries, (entry) => (entry.officeTrip ? 1 : 0)),
-      meetings: correlationFor(validEntries, (entry) => (hasFilledText(entry.meetings) ? 1 : 0)),
+      officeTrip: correlationFor(validEntries, (entry) => booleanToNumber(entry.officeTrip)),
+      meetings: correlationFor(validEntries, (entry) => textFlagToNumber(entry.meetings)),
       cycleDay: correlationFor(validEntries, (entry) => entry.cycleDay),
       headache: correlationFor(validEntries, (entry) => entry.headache)
     },
     laggedCorrelationsWithDayIndex: {
-      meetings: buildLaggedCorrelations(validEntries, (entry) => (hasFilledText(entry.meetings) ? 1 : 0), [0, 1, 2]),
-      importantEvent: buildLaggedCorrelations(validEntries, (entry) => (hasFilledText(entry.importantEvent) ? 1 : 0), [0, 1, 2]),
-      officeTrip: buildLaggedCorrelations(validEntries, (entry) => (entry.officeTrip ? 1 : 0), [0, 1, 2])
+      meetings: buildLaggedCorrelations(validEntries, (entry) => textFlagToNumber(entry.meetings), [0, 1, 2]),
+      importantEvent: buildLaggedCorrelations(validEntries, (entry) => textFlagToNumber(entry.importantEvent), [0, 1, 2]),
+      officeTrip: buildLaggedCorrelations(validEntries, (entry) => booleanToNumber(entry.officeTrip), [0, 1, 2])
     },
     sleepComparison: {
       daysWithSleepProblem: sleepYes.length,
@@ -544,7 +560,18 @@ function addDaysIso(date, days) {
 
 function hasFilledText(value) {
   const text = String(value || "").trim().toLowerCase();
-  return Boolean(text && !["нет", "нд", "no", "n/a", "-"].includes(text));
+  return Boolean(text && !isMissingText(text) && !isNegativeText(text));
+}
+
+function textFlagToNumber(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text || isMissingText(text)) return null;
+  return isNegativeText(text) ? 0 : 1;
+}
+
+function booleanToNumber(value) {
+  if (value === null || value === undefined) return null;
+  return value ? 1 : 0;
 }
 
 function pearson(pairs) {
