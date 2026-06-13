@@ -13,6 +13,8 @@ const weeklyChartEl = document.querySelector("#weeklyChart");
 const weeklyExplanationEl = document.querySelector("#weeklyExplanation");
 const energyMedicationInsightEl = document.querySelector("#energyMedicationInsight");
 const sleepInsightEl = document.querySelector("#sleepInsight");
+const correlationSelectEl = document.querySelector("#correlationSelect");
+const customCorrelationResultEl = document.querySelector("#customCorrelationResult");
 
 const series = [
   { key: "energy", label: "Энергия", color: "#c94f7c" },
@@ -28,6 +30,24 @@ const medicationFields = [
   { key: "zilaxera", label: "Зилаксера" },
   { key: "tritticoAtarax", label: "Триттико / Атаракс" },
   { key: "lithiumMg", label: "Литий" }
+];
+
+const customCorrelationFields = [
+  { key: "joy", label: "Радость", getValue: (row) => row.joy },
+  { key: "interest", label: "Интерес", getValue: (row) => row.interest },
+  { key: "dayIndex", label: "Индекс дня", getValue: (row) => row.dayIndex },
+  { key: "sleepProblem", label: "Проблемы со сном ночью", getValue: (row) => (row.sleepProblem ? 1 : 0), binary: true },
+  { key: "importantEvent", label: "Что-то важное", getValue: (row) => hasFilledText(row.importantEvent) ? 1 : 0, binary: true },
+  { key: "officeTrip", label: "Поездка в офис", getValue: (row) => (row.officeTrip ? 1 : 0), binary: true },
+  { key: "meetings", label: "Встречи", getValue: (row) => hasFilledText(row.meetings) ? 1 : 0, binary: true },
+  { key: "cycleDay", label: "День цикла", getValue: (row) => row.cycleDay },
+  { key: "headache", label: "Головная боль / мигрень", getValue: (row) => row.headache },
+  { key: "zoloft", label: "Золофт", getValue: (row) => row.medications?.zoloft },
+  { key: "fluoxetine", label: "Флуоксетин", getValue: (row) => row.medications?.fluoxetine },
+  { key: "zilaxera", label: "Зилаксера", getValue: (row) => row.medications?.zilaxera },
+  { key: "tritticoAtarax", label: "Триттико / Атаракс", getValue: (row) => row.medications?.tritticoAtarax },
+  { key: "lithiumMg", label: "Литий", getValue: (row) => row.medications?.lithiumMg },
+  { key: "euthyroxMg", label: "Эутирокс", getValue: (row) => row.medications?.euthyroxMg }
 ];
 
 let currentRows = [];
@@ -164,6 +184,11 @@ function getImportantEvent(row) {
   const event = String(row.importantEvent || "").trim();
   if (!event || event.toLowerCase() === "нет") return "";
   return event;
+}
+
+function hasFilledText(value) {
+  const text = String(value || "").trim().toLowerCase();
+  return Boolean(text && text !== "нет" && text !== "нд" && text !== "РЅРµС‚");
 }
 
 function formatDate(row) {
@@ -478,8 +503,47 @@ function formatIsoShort(isoDate) {
 }
 
 function renderInsights(rows, today) {
+  renderCustomCorrelation(rows);
   renderEnergyMedicationInsight(rows);
   renderSleepInsight(rows, today);
+}
+
+function renderCustomCorrelation(rows) {
+  if (!correlationSelectEl || !customCorrelationResultEl) return;
+
+  if (!correlationSelectEl.options.length) {
+    correlationSelectEl.innerHTML = customCorrelationFields
+      .map((field) => `<option value="${field.key}">${field.label}</option>`)
+      .join("");
+  }
+
+  const selectedField = customCorrelationFields.find((field) => field.key === correlationSelectEl.value) || customCorrelationFields[0];
+  const result = calculateCorrelation(rows, (row) => row.energy, selectedField.getValue);
+
+  if (result.r === null) {
+    customCorrelationResultEl.innerHTML = `
+      <div class="correlation-score muted">-</div>
+      <p>${result.note || "Корреляцию пока нельзя посчитать."}</p>
+      <small>Нужно хотя бы 3 дня, где заполнены и энергия, и выбранный параметр.</small>
+    `;
+    return;
+  }
+
+  customCorrelationResultEl.innerHTML = `
+    <div class="correlation-score ${result.r >= 0 ? "positive" : "negative"}">r=${result.r.toFixed(2)}</div>
+    <p>${describeCustomCorrelation(selectedField.label, result)}</p>
+    <small>${selectedField.binary ? "Параметр считается как 1/0." : "Считается линейная корреляция Пирсона."} Точек данных: ${result.n}.</small>
+  `;
+}
+
+function describeCustomCorrelation(label, result) {
+  const direction = result.r > 0 ? "выше" : "ниже";
+  const strength = Math.abs(result.r) >= 0.5
+    ? "заметная"
+    : Math.abs(result.r) >= 0.3
+      ? "умеренная"
+      : "слабая";
+  return `${strength} связь: когда "${label}" растет или встречается чаще, энергия обычно ${direction}. Это корреляция, а не доказательство причины.`;
 }
 
 function renderEnergyMedicationInsight(rows) {
@@ -538,7 +602,7 @@ function calculateCorrelation(rows, getFirst, getSecond) {
     .filter(([first, second]) => Number.isFinite(first) && Number.isFinite(second));
   if (pairs.length < 3) return { r: null, n: pairs.length, note: "мало данных" };
   if (new Set(pairs.map((pair) => pair[1])).size < 2) {
-    return { r: null, n: pairs.length, note: "доза не менялась" };
+    return { r: null, n: pairs.length, note: "значение не менялось" };
   }
 
   const meanFirst = pairs.reduce((sum, pair) => sum + pair[0], 0) / pairs.length;
@@ -739,6 +803,7 @@ async function init() {
     renderInsights(currentRows, data.today);
 
     reportButton.addEventListener("click", () => createReport(currentRows));
+    correlationSelectEl?.addEventListener("change", () => renderCustomCorrelation(currentRows));
     askForm.addEventListener("submit", (event) => {
       event.preventDefault();
       const question = questionInput.value.trim();
