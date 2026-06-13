@@ -10,7 +10,7 @@ const port = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const sheetRange = process.env.GOOGLE_SHEET_RANGE || "A:K";
+const sheetRange = process.env.GOOGLE_SHEET_RANGE || "A:Q";
 const appTimeZone = process.env.APP_TIME_ZONE || "Europe/Moscow";
 
 const sampleEntries = [
@@ -136,6 +136,51 @@ function rowsToEntries(rows) {
 
 function rowToEntry(row, normalizedDate = normalizeDate(row[0]), headerMap = null) {
   const today = getTodayIsoDate();
+  if (!headerMap && row.length <= 11) {
+    return rowToEntry([
+      row[0],
+      row[1],
+      row[2],
+      row[3],
+      row[4],
+      row[5],
+      row[6],
+      "нд",
+      "нд",
+      "нд",
+      "0",
+      row[7],
+      "0",
+      row[8],
+      row[9],
+      row[10],
+      "0"
+    ], normalizedDate, headerMap);
+  }
+
+  return {
+    date: normalizedDate,
+    rawDate: String(getCell(row, headerMap, ["Дата", "РґР°С‚Р°"], 0) || "").trim(),
+    isToday: normalizedDate === today,
+    energy: parseNumber(getCell(row, headerMap, ["Энергия", "СЌРЅРµСЂРіРёСЏ"], 1)),
+    joy: parseNumber(getCell(row, headerMap, ["Радость", "СЂР°РґРѕСЃС‚СЊ"], 2)),
+    interest: parseNumber(getCell(row, headerMap, ["Интерес", "РёРЅС‚РµСЂРµСЃ"], 3)),
+    dayIndex: parseNumber(getCell(row, headerMap, ["Индекс дня", "Индекс", "РёРЅРґРµРєСЃ РґРЅСЏ", "РёРЅРґРµРєСЃ"], 4)),
+    sleepProblem: parseBoolean(getCell(row, headerMap, ["Проблемы со сном ночью", "Сон", "РїСЂРѕР±Р»РµРјС‹ СЃРѕ СЃРЅРѕРј РЅРѕС‡СЊСЋ", "СЃРѕРЅ"], 5)),
+    importantEvent: String(getCell(row, headerMap, ["Что-то важное", "Важное", "Событие", "С‡С‚Рѕ-С‚Рѕ РІР°Р¶РЅРѕРµ", "РІР°Р¶РЅРѕРµ", "СЃРѕР±С‹С‚РёРµ"], 6) || "").trim(),
+    officeTrip: parseBoolean(getCell(row, headerMap, ["Поездка в офис да нет", "Поездка в офис", "Офис"], 7)),
+    meetings: String(getCell(row, headerMap, ["Встречи"], 8) || "").trim(),
+    cycleDay: parseNumber(getCell(row, headerMap, ["День цикла", "Цикл"], 9)),
+    headache: parseNumber(getCell(row, headerMap, ["Головная боль мигрень", "Головная боль", "Мигрень"], 10)),
+    medications: {
+      zoloft: parseNumber(getCell(row, headerMap, ["Золофт", "Р·РѕР»РѕС„С‚"], 11)),
+      fluoxetine: parseNumber(getCell(row, headerMap, ["Флуоксетин"], 12)),
+      zilaxera: parseNumber(getCell(row, headerMap, ["Зилаксера", "Р·РёР»Р°РєСЃРµСЂР°"], 13)),
+      tritticoAtarax: parseNumber(getCell(row, headerMap, ["Триттико Атаракс", "Триттико", "Атаракс", "С‚СЂРёС‚С‚РёРєРѕ Р°С‚Р°СЂР°РєСЃ", "С‚СЂРёС‚С‚РёРєРѕ", "Р°С‚Р°СЂР°РєСЃ"], 14)),
+      lithiumMg: parseNumber(getCell(row, headerMap, ["Литий мг", "Литий", "Р»РёС‚РёР№ РјРі", "Р»РёС‚РёР№"], 15)),
+      euthyroxMg: parseNumber(getCell(row, headerMap, ["Эутирокс гормоны щитовидки мг", "Эутирокс"], 16))
+    }
+  };
 
   return {
     date: normalizedDate,
@@ -393,9 +438,14 @@ function buildAnalytics(entries) {
       interest: correlationFor(validEntries, (entry) => entry.interest),
       sleepProblem: correlationFor(validEntries, (entry) => (entry.sleepProblem ? 1 : 0)),
       zoloft: correlationFor(validEntries, (entry) => entry.medications.zoloft),
+      fluoxetine: correlationFor(validEntries, (entry) => entry.medications.fluoxetine),
       zilaxera: correlationFor(validEntries, (entry) => entry.medications.zilaxera),
       tritticoAtarax: correlationFor(validEntries, (entry) => entry.medications.tritticoAtarax),
-      lithiumMg: correlationFor(validEntries, (entry) => entry.medications.lithiumMg)
+      lithiumMg: correlationFor(validEntries, (entry) => entry.medications.lithiumMg),
+      euthyroxMg: correlationFor(validEntries, (entry) => entry.medications.euthyroxMg),
+      officeTrip: correlationFor(validEntries, (entry) => (entry.officeTrip ? 1 : 0)),
+      cycleDay: correlationFor(validEntries, (entry) => entry.cycleDay),
+      headache: correlationFor(validEntries, (entry) => entry.headache)
     },
     sleepComparison: {
       daysWithSleepProblem: sleepYes.length,
@@ -427,7 +477,11 @@ function compactEntry(entry) {
     joy: entry.joy,
     interest: entry.interest,
     sleepProblem: entry.sleepProblem,
-    importantEvent: entry.importantEvent
+    importantEvent: entry.importantEvent,
+    officeTrip: entry.officeTrip,
+    meetings: entry.meetings,
+    cycleDay: entry.cycleDay,
+    headache: entry.headache
   };
 }
 
@@ -485,6 +539,8 @@ function pearsonSlope(pairs) {
 
 function findMedicationChanges(entries) {
   const fields = [
+    ["fluoxetine", "Флуоксетин"],
+    ["euthyroxMg", "Эутирокс"],
     ["zoloft", "Золофт"],
     ["zilaxera", "Зилаксера"],
     ["tritticoAtarax", "Триттико / Атаракс"],

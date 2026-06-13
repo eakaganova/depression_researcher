@@ -22,6 +22,8 @@ const series = [
 const chartMinValue = 0;
 const chartMaxValue = 10;
 const medicationFields = [
+  { key: "fluoxetine", label: "Флуоксетин" },
+  { key: "euthyroxMg", label: "Эутирокс" },
   { key: "zoloft", label: "Золофт" },
   { key: "zilaxera", label: "Зилаксера" },
   { key: "tritticoAtarax", label: "Триттико / Атаракс" },
@@ -180,9 +182,11 @@ function renderMedications(rows) {
   const latest = getMedicationSnapshot(rows);
   const items = [
     ["Золофт", latest.zoloft],
+    ["Флуоксетин", latest.fluoxetine],
     ["Зилаксера", latest.zilaxera],
     ["Триттико / Атаракс", latest.tritticoAtarax],
-    ["Литий", latest.lithiumMg === null ? null : `${latest.lithiumMg} мг`]
+    ["Литий", latest.lithiumMg === null ? null : `${latest.lithiumMg} мг`],
+    ["Эутирокс", latest.euthyroxMg === null ? null : `${latest.euthyroxMg} мг`]
   ];
 
   medicationsEl.innerHTML = items
@@ -207,9 +211,11 @@ function getMedicationSnapshotAtDate(rows, date) {
   const eligibleRows = rows.filter((row) => !date || row.date <= date);
   const snapshot = {
     zoloft: null,
+    fluoxetine: null,
     zilaxera: null,
     tritticoAtarax: null,
-    lithiumMg: null
+    lithiumMg: null,
+    euthyroxMg: null
   };
 
   for (const row of eligibleRows) {
@@ -602,9 +608,11 @@ function createMedicationComparisonCard(rows, baselineRows, currentRows) {
   const after = getMedicationSnapshotAtDate(rows, currentRows.at(-1)?.date);
   const labels = {
     zoloft: "Золофт",
+    fluoxetine: "Флуоксетин",
     zilaxera: "Зилаксера",
     tritticoAtarax: "Триттико / Атаракс",
-    lithiumMg: "Литий"
+    lithiumMg: "Литий",
+    euthyroxMg: "Эутирокс"
   };
   const medicationRows = Object.keys(labels).map((key) => {
     const beforeValue = formatMedicationValue(key, before[key]);
@@ -631,7 +639,7 @@ function numericAverage(rows, key) {
 
 function formatMedicationValue(key, value) {
   if (!Number.isFinite(value)) return "-";
-  return key === "lithiumMg" ? `${value} мг` : `${value}`;
+  return key === "lithiumMg" || key === "euthyroxMg" ? `${value} мг` : `${value}`;
 }
 
 function getMonthName(monthKey) {
