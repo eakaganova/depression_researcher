@@ -521,22 +521,10 @@ function renderCustomCorrelation(rows) {
   const laggedResults = calculateLaggedCorrelations(rows, (row) => row.energy, selectedField.getValue);
   const result = laggedResults[0].result;
 
-  if (result.r === null) {
-    customCorrelationResultEl.innerHTML = `
-      <div class="correlation-score muted">-</div>
-      <p>${result.note || "Корреляцию пока нельзя посчитать."}</p>
-      <small>Нужно хотя бы 3 дня, где заполнены и энергия, и выбранный параметр.</small>
-      <div class="lag-correlation-list">
-        ${laggedResults.map((item) => renderLagCorrelationRow(item)).join("")}
-      </div>
-    `;
-    return;
-  }
-
   customCorrelationResultEl.innerHTML = `
-    <div class="correlation-score ${result.r >= 0 ? "positive" : "negative"}">r=${result.r.toFixed(2)}</div>
-    <p>${describeCustomCorrelation(selectedField.label, result)}</p>
-    <small>${selectedField.binary ? "Параметр считается как 1/0." : "Считается линейная корреляция Пирсона."} Точек данных: ${result.n}.</small>
+    <div class="correlation-score ${result.r === null ? "muted" : result.r >= 0 ? "positive" : "negative"}">${formatCorrelationScore(result)}</div>
+    <p>${describeLaggedEnergySummary(selectedField.label, laggedResults)}</p>
+    <small>${selectedField.binary ? "Параметр считается как да/нет." : "Параметр сравнивается с уровнем энергии."} r около 0 значит, что заметной связи не видно; знак + означает выше, знак - ниже.</small>
     <div class="lag-correlation-list">
       ${laggedResults.map((item) => renderLagCorrelationRow(item)).join("")}
     </div>
@@ -584,11 +572,65 @@ function calculateCorrelationPairs(pairs) {
 }
 
 function renderLagCorrelationRow({ lag, result }) {
-  const label = lag === 0 ? "в этот день" : lag === 1 ? "на следующий день" : "через 2 дня";
+  const label = getEnergyLagLabel(lag);
   if (result.r === null) {
-    return `<div class="lag-correlation-row"><span>${label}</span><small>${result.note}, n=${result.n}</small></div>`;
+    return `
+      <div class="lag-correlation-row muted">
+        <span>${label}</span>
+        <strong>пока неясно</strong>
+        <small>${result.note}, дней в расчете: ${result.n}</small>
+      </div>
+    `;
   }
-  return `<div class="lag-correlation-row"><span>${label}</span><strong>r=${result.r.toFixed(2)}</strong><small>n=${result.n}</small></div>`;
+  return `
+    <div class="lag-correlation-row ${result.r < 0 ? "negative" : "positive"}">
+      <span>${label}</span>
+      <strong>${describeCorrelationDirection(result.r)}</strong>
+      <small>${describeCorrelationStrength(result.r)} связь, r=${result.r.toFixed(2)}, дней в расчете: ${result.n}</small>
+    </div>
+  `;
+}
+
+function formatCorrelationScore(result) {
+  if (result.r === null) return "-";
+  return result.r > 0 ? `+${result.r.toFixed(2)}` : result.r.toFixed(2);
+}
+
+function describeLaggedEnergySummary(label, laggedResults) {
+  const futureResults = laggedResults
+    .filter((item) => item.lag > 0 && item.result.r !== null)
+    .sort((first, second) => Math.abs(second.result.r) - Math.abs(first.result.r));
+
+  if (!futureResults.length) {
+    return `Для "${label}" пока не хватает данных, чтобы уверенно понять связь с энергией на следующие 1-2 дня.`;
+  }
+
+  const strongest = futureResults[0];
+  if (Math.abs(strongest.result.r) < 0.3) {
+    return `Для "${label}" заметной связи с энергией на следующие 1-2 дня пока не видно. Это скорее похоже на шум, чем на устойчивый след события.`;
+  }
+
+  const direction = strongest.result.r > 0 ? "выше" : "ниже";
+  const lagText = strongest.lag === 1 ? "на следующий день" : "через 2 дня";
+  return `Самый заметный след для "${label}" виден ${lagText}: энергия обычно ${direction}. Это подсказка для наблюдения, а не доказательство причины.`;
+}
+
+function getEnergyLagLabel(lag) {
+  if (lag === 0) return "Энергия в тот же день";
+  if (lag === 1) return "Энергия на следующий день";
+  return "Энергия через 2 дня";
+}
+
+function describeCorrelationDirection(r) {
+  if (Math.abs(r) < 0.3) return "связь слабая";
+  return r > 0 ? "обычно выше" : "обычно ниже";
+}
+
+function describeCorrelationStrength(r) {
+  const value = Math.abs(r);
+  if (value >= 0.5) return "заметная";
+  if (value >= 0.3) return "умеренная";
+  return "слабая";
 }
 
 function describeCustomCorrelation(label, result) {

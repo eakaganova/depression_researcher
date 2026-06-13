@@ -514,11 +514,26 @@ function buildLaggedCorrelations(entries, getValue, lags) {
         })
         .filter((pair) => pair && Number.isFinite(pair[0]) && Number.isFinite(pair[1]));
 
-      if (pairs.length < 3) return [`dayPlus${lag}`, { r: null, n: pairs.length, note: "Недостаточно точек" }];
-      if (new Set(pairs.map(([x]) => x)).size < 2) return [`dayPlus${lag}`, { r: null, n: pairs.length, note: "Значение не менялось" }];
-      return [`dayPlus${lag}`, { r: round(pearson(pairs), 3), n: pairs.length }];
+      if (pairs.length < 3) {
+        return [`dayPlus${lag}`, { r: null, n: pairs.length, note: "Недостаточно точек", interpretation: "Пока нельзя надежно интерпретировать." }];
+      }
+      if (new Set(pairs.map(([x]) => x)).size < 2) {
+        return [`dayPlus${lag}`, { r: null, n: pairs.length, note: "Значение не менялось", interpretation: "Фактор почти не менялся, поэтому связь не считается." }];
+      }
+
+      const r = round(pearson(pairs), 3);
+      return [`dayPlus${lag}`, { r, n: pairs.length, interpretation: describeLaggedCorrelation(lag, r) }];
     })
   );
+}
+
+function describeLaggedCorrelation(lag, r) {
+  if (r === null) return "Пока нельзя надежно интерпретировать.";
+  const when = lag === 0 ? "в тот же день" : lag === 1 ? "на следующий день" : "через 2 дня";
+  if (Math.abs(r) < 0.3) return `Заметной связи с индексом дня ${when} не видно.`;
+  const direction = r > 0 ? "выше" : "ниже";
+  const strength = Math.abs(r) >= 0.5 ? "заметная" : "умеренная";
+  return `${strength} связь: индекс дня ${when} обычно ${direction}.`;
 }
 
 function addDaysIso(date, days) {
@@ -663,7 +678,7 @@ async function askLlm(question, analytics) {
     instructions: [
       "Ты аналитик дневника самочувствия. Отвечай на основе рассчитанной статистики, а не пересказывай строки таблицы.",
       "Если вопрос про связь факторов, обязательно используй корреляции r, размер выборки n, сравнение средних или тренд из analytics.",
-      "Если вопрос про влияние встреч, событий или поездок на последующие дни, смотри laggedCorrelationsWithDayIndex: dayPlus0, dayPlus1 и dayPlus2.",
+      "Если вопрос про влияние встреч, событий или поездок на последующие дни, смотри laggedCorrelationsWithDayIndex: dayPlus0, dayPlus1 и dayPlus2. Объясняй простыми словами: в тот же день, на следующий день, через 2 дня; r используй как подтверждающую деталь.",
       "Не выводи JSON, Markdown-таблицы, заголовки с #, списки со звездочками и блоки кода.",
       "Пиши обычным русским текстом, короткими абзацами. Допустимы строки вида '1. ...', '2. ...'.",
       "Не ставь диагнозы, не назначай лечение, не советуй менять дозировки.",

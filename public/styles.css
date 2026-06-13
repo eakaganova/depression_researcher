@@ -687,17 +687,21 @@ button:hover {
 .lag-correlation-list {
   grid-column: 1 / -1;
   display: grid;
-  gap: 6px;
-  margin-top: 8px;
-  padding-top: 10px;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 12px;
   border-top: 1px solid #f0dde5;
 }
 
 .lag-correlation-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 10px;
-  align-items: baseline;
+  grid-template-columns: minmax(170px, 1fr) minmax(110px, auto);
+  gap: 4px 12px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid rgba(201, 79, 124, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 250, 251, 0.72);
 }
 
 .lag-correlation-row span {
@@ -707,11 +711,21 @@ button:hover {
 .lag-correlation-row strong {
   color: var(--accent);
   font-size: 15px;
+  text-align: right;
 }
 
 .lag-correlation-row small {
+  grid-column: 1 / -1;
   color: var(--muted);
   font-size: 12px;
+}
+
+.lag-correlation-row.negative strong {
+  color: #8f5f88;
+}
+
+.lag-correlation-row.muted strong {
+  color: var(--muted);
 }
 
 .correlation-score {
