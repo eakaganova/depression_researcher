@@ -32,6 +32,13 @@ const medicationFields = [
   { key: "lithiumMg", label: "Литий" }
 ];
 
+const cyclePhaseFields = [
+  { key: "menstrual", label: "Менструальная фаза" },
+  { key: "follicular", label: "Фолликулярная фаза" },
+  { key: "ovulation", label: "Овуляторная фаза" },
+  { key: "luteal", label: "Лютеиновая фаза" }
+];
+
 const customCorrelationFields = [
   { key: "joy", label: "Радость", getValue: (row) => row.joy },
   { key: "interest", label: "Интерес", getValue: (row) => row.interest },
@@ -41,6 +48,14 @@ const customCorrelationFields = [
   { key: "officeTrip", label: "Поездка в офис", getValue: (row) => booleanToNumber(row.officeTrip), binary: true },
   { key: "meetings", label: "Встречи", getValue: (row) => textFlagToNumber(row.meetings), binary: true },
   { key: "cycleDay", label: "День цикла", getValue: (row) => row.cycleDay },
+  { key: "cycleDayByDate", label: "День цикла по датам фаз", getValue: (row) => row.cycle?.day },
+  { key: "cyclePhaseStartDistance", label: "Дней от старта фазы цикла", getValue: (row) => row.cycle?.distanceToPhaseStart },
+  ...cyclePhaseFields.map((phase) => ({
+    key: `cyclePhase_${phase.key}`,
+    label: phase.label,
+    getValue: (row) => row.cycle?.phase === phase.key ? 1 : 0,
+    binary: true
+  })),
   { key: "headache", label: "Головная боль / мигрень", getValue: (row) => row.headache },
   { key: "zoloft", label: "Золофт", getValue: (row) => row.medications?.zoloft },
   { key: "fluoxetine", label: "Флуоксетин", getValue: (row) => row.medications?.fluoxetine },

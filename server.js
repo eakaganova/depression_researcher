@@ -85,14 +85,14 @@ app.post("/api/ask", async (request, response) => {
 
 async function loadEntries() {
   if (process.env.GOOGLE_SHEET_CSV_URL) {
-    return loadEntriesFromCsv(process.env.GOOGLE_SHEET_CSV_URL);
+    return enrichCycleContext(await loadEntriesFromCsv(process.env.GOOGLE_SHEET_CSV_URL));
   }
 
   if (process.env.GOOGLE_SHEET_ID && process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-    return loadEntriesFromGoogleApi();
+    return enrichCycleContext(await loadEntriesFromGoogleApi());
   }
 
-  return sampleEntries;
+  return enrichCycleContext(sampleEntries);
 }
 
 function getConfiguredSourceName() {
@@ -409,6 +409,127 @@ function parseSeparatedValues(text, delimiter) {
   return rows;
 }
 
+const cyclePhases = [
+  { key: "menstrual", label: "Менструальная фаза", startsAt: 1 },
+  { key: "follicular", label: "Фолликулярная фаза", startsAt: 6 },
+  { key: "ovulation", label: "Овуляторная фаза", startsAt: 14 },
+  { key: "luteal", label: "Лютеиновая фаза", startsAt: 17 }
+];
+
+function enrichCycleContext(entries) {
+  const sorted = [...entries].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+  const anchors = inferCycleAnchors(sorted);
+
+  return entries.map((entry) => ({
+    ...entry,
+    cycle: buildCycleContext(entry, anchors)
+  }));
+}
+
+function inferCycleAnchors(entries) {
+  const anchors = [];
+  let lastAnchor = null;
+
+  for (const entry of entries) {
+    if (!entry.date || !Number.isFinite(entry.cycleDay) || entry.cycleDay < 1) continue;
+
+    const anchorDate = addDaysIso(entry.date, 1 - Math.round(entry.cycleDay));
+    if (!lastAnchor || daysBetweenIso(lastAnchor.date, anchorDate) >= 7) {
+      lastAnchor = { date: anchorDate, sourceDate: entry.date };
+      anchors.push(lastAnchor);
+    } else if (entry.cycleDay <= 2 && daysBetweenIso(lastAnchor.date, anchorDate) > 0) {
+      lastAnchor.date = anchorDate;
+      lastAnchor.sourceDate = entry.date;
+    }
+  }
+
+  const lengths = anchors
+    .map((anchor, index) => anchors[index + 1] ? daysBetweenIso(anchor.date, anchors[index + 1].date) : null)
+    .filter((length) => Number.isFinite(length) && length >= 21 && length <= 40);
+  const fallbackLength = lengths.length ? median(lengths) : 28;
+
+  return anchors.map((anchor, index) => ({
+    ...anchor,
+    length: anchors[index + 1]
+      ? Math.max(21, Math.min(40, daysBetweenIso(anchor.date, anchors[index + 1].date)))
+      : fallbackLength
+  }));
+}
+
+function buildCycleContext(entry, anchors) {
+  if (!entry.date) return null;
+
+  const anchor = findCycleAnchor(entry.date, anchors);
+  const cycleLength = anchor?.length || 28;
+  const inferredDay = anchor ? daysBetweenIso(anchor.date, entry.date) + 1 : null;
+  const cycleDay = Number.isFinite(inferredDay)
+    ? wrapCycleDay(inferredDay, cycleLength)
+    : Number.isFinite(entry.cycleDay)
+      ? wrapCycleDay(Math.round(entry.cycleDay), cycleLength)
+      : null;
+
+  if (!Number.isFinite(cycleDay)) return null;
+
+  const phase = phaseForCycleDay(cycleDay, cycleLength);
+  const phaseStartDate = anchor ? addDaysIso(anchor.date, phase.startsAt - 1) : null;
+  const nextPhase = nextCyclePhase(phase.key);
+  const nextPhaseStartDay = nextPhase.startsAt > phase.startsAt ? nextPhase.startsAt : cycleLength + 1;
+
+  return {
+    day: cycleDay,
+    length: cycleLength,
+    phase: phase.key,
+    phaseLabel: phase.label,
+    phaseStartDate,
+    dayInPhase: cycleDay - phase.startsAt + 1,
+    daysToNextPhase: nextPhaseStartDay - cycleDay,
+    distanceToPhaseStart: cycleDay - phase.startsAt
+  };
+}
+
+function findCycleAnchor(date, anchors) {
+  let selected = null;
+  for (const anchor of anchors) {
+    if (anchor.date <= date) selected = anchor;
+    else break;
+  }
+  return selected;
+}
+
+function phaseForCycleDay(cycleDay, cycleLength) {
+  const lutealStart = Math.min(17, cycleLength);
+  const ovulationStart = Math.min(14, lutealStart);
+  const follicularStart = Math.min(6, ovulationStart);
+  const boundaries = [
+    cyclePhases[0],
+    { ...cyclePhases[1], startsAt: follicularStart },
+    { ...cyclePhases[2], startsAt: ovulationStart },
+    { ...cyclePhases[3], startsAt: lutealStart }
+  ];
+
+  return [...boundaries].reverse().find((phase) => cycleDay >= phase.startsAt) || boundaries[0];
+}
+
+function nextCyclePhase(key) {
+  const index = cyclePhases.findIndex((phase) => phase.key === key);
+  return cyclePhases[(index + 1) % cyclePhases.length] || cyclePhases[0];
+}
+
+function wrapCycleDay(day, cycleLength) {
+  if (!Number.isFinite(day) || !Number.isFinite(cycleLength) || cycleLength < 1) return null;
+  return ((day - 1) % cycleLength + cycleLength) % cycleLength + 1;
+}
+
+function daysBetweenIso(from, to) {
+  return Math.round((new Date(`${to}T00:00:00Z`) - new Date(`${from}T00:00:00Z`)) / 86400000);
+}
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
 function average(entries, key) {
   const values = entries.map((entry) => entry[key]).filter(Number.isFinite);
   if (!values.length) return 0;
@@ -425,7 +546,8 @@ function formatAverage(entries, key) {
 }
 
 function buildAnalytics(entries) {
-  const validEntries = entries.filter((entry) => Number.isFinite(entry.dayIndex));
+  const cycleAwareEntries = entries.every((entry) => entry.cycle) ? entries : enrichCycleContext(entries);
+  const validEntries = cycleAwareEntries.filter((entry) => Number.isFinite(entry.dayIndex));
   const dayIndex = validEntries.map((entry) => entry.dayIndex);
   const sortedByIndex = [...validEntries].sort((a, b) => a.dayIndex - b.dayIndex);
   const sleepYes = validEntries.filter((entry) => entry.sleepProblem === true);
@@ -469,6 +591,7 @@ function buildAnalytics(entries) {
       importantEvent: buildLaggedCorrelations(validEntries, (entry) => textFlagToNumber(entry.importantEvent), [0, 1, 2]),
       officeTrip: buildLaggedCorrelations(validEntries, (entry) => booleanToNumber(entry.officeTrip), [0, 1, 2])
     },
+    cycleEnergy: buildCycleEnergyAnalytics(validEntries),
     sleepComparison: {
       daysWithSleepProblem: sleepYes.length,
       daysWithoutSleepProblem: sleepNo.length,
@@ -503,13 +626,45 @@ function compactEntry(entry) {
     officeTrip: entry.officeTrip,
     meetings: entry.meetings,
     cycleDay: entry.cycleDay,
+    cycle: entry.cycle,
     headache: entry.headache
+  };
+}
+
+function buildCycleEnergyAnalytics(entries) {
+  const entriesWithCycle = entries.filter((entry) => entry.cycle && Number.isFinite(entry.energy));
+
+  return {
+    daysWithCycleContext: entriesWithCycle.length,
+    correlationWithCycleDay: correlationForEnergy(entriesWithCycle, (entry) => entry.cycle.day),
+    correlationWithDistanceToPhaseStart: correlationForEnergy(entriesWithCycle, (entry) => entry.cycle.distanceToPhaseStart),
+    phases: Object.fromEntries(cyclePhases.map((phase) => {
+      const phaseEntries = entriesWithCycle.filter((entry) => entry.cycle.phase === phase.key);
+      return [phase.key, {
+        label: phase.label,
+        days: phaseEntries.length,
+        averageEnergy: phaseEntries.length ? round(average(phaseEntries, "energy"), 2) : null,
+        averageDayIndex: phaseEntries.length ? round(average(phaseEntries, "dayIndex"), 2) : null,
+        energyCorrelation: correlationForEnergy(entriesWithCycle, (entry) => entry.cycle.phase === phase.key ? 1 : 0)
+      }];
+    }))
   };
 }
 
 function correlationFor(entries, getValue) {
   const pairs = entries
     .map((entry) => [getValue(entry), entry.dayIndex])
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+
+  if (pairs.length < 3) return { r: null, n: pairs.length, note: "Недостаточно точек" };
+  const xValues = pairs.map(([x]) => x);
+  if (new Set(xValues).size < 2) return { r: null, n: pairs.length, note: "Значение не менялось" };
+  return { r: round(pearson(pairs), 3), n: pairs.length };
+}
+
+function correlationForEnergy(entries, getValue) {
+  const pairs = entries
+    .map((entry) => [getValue(entry), entry.energy])
     .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
 
   if (pairs.length < 3) return { r: null, n: pairs.length, note: "Недостаточно точек" };
@@ -706,6 +861,7 @@ async function askLlm(question, analytics) {
       "Ты аналитик дневника самочувствия. Отвечай на основе рассчитанной статистики, а не пересказывай строки таблицы.",
       "Если вопрос про связь факторов, обязательно используй корреляции r, размер выборки n, сравнение средних или тренд из analytics.",
       "Если вопрос про влияние встреч, событий или поездок на последующие дни, смотри laggedCorrelationsWithDayIndex: dayPlus0, dayPlus1 и dayPlus2. Объясняй простыми словами: в тот же день, на следующий день, через 2 дня; r используй как подтверждающую деталь.",
+      "Если вопрос про цикл, фазы цикла или энергию в разные фазы, смотри analytics.cycleEnergy: там день цикла рассчитан по датам стартов циклов, есть фазы, средняя энергия по фазам и корреляции фаз с энергией.",
       "Не выводи JSON, Markdown-таблицы, заголовки с #, списки со звездочками и блоки кода.",
       "Пиши обычным русским текстом, короткими абзацами. Допустимы строки вида '1. ...', '2. ...'.",
       "Не ставь диагнозы, не назначай лечение, не советуй менять дозировки.",
