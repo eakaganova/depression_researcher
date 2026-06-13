@@ -444,8 +444,14 @@ function buildAnalytics(entries) {
       lithiumMg: correlationFor(validEntries, (entry) => entry.medications.lithiumMg),
       euthyroxMg: correlationFor(validEntries, (entry) => entry.medications.euthyroxMg),
       officeTrip: correlationFor(validEntries, (entry) => (entry.officeTrip ? 1 : 0)),
+      meetings: correlationFor(validEntries, (entry) => (hasFilledText(entry.meetings) ? 1 : 0)),
       cycleDay: correlationFor(validEntries, (entry) => entry.cycleDay),
       headache: correlationFor(validEntries, (entry) => entry.headache)
+    },
+    laggedCorrelationsWithDayIndex: {
+      meetings: buildLaggedCorrelations(validEntries, (entry) => (hasFilledText(entry.meetings) ? 1 : 0), [0, 1, 2]),
+      importantEvent: buildLaggedCorrelations(validEntries, (entry) => (hasFilledText(entry.importantEvent) ? 1 : 0), [0, 1, 2]),
+      officeTrip: buildLaggedCorrelations(validEntries, (entry) => (entry.officeTrip ? 1 : 0), [0, 1, 2])
     },
     sleepComparison: {
       daysWithSleepProblem: sleepYes.length,
@@ -494,6 +500,36 @@ function correlationFor(entries, getValue) {
   const xValues = pairs.map(([x]) => x);
   if (new Set(xValues).size < 2) return { r: null, n: pairs.length, note: "Значение не менялось" };
   return { r: round(pearson(pairs), 3), n: pairs.length };
+}
+
+function buildLaggedCorrelations(entries, getValue, lags) {
+  const byDate = new Map(entries.filter((entry) => entry.date).map((entry) => [entry.date, entry]));
+  return Object.fromEntries(
+    lags.map((lag) => {
+      const pairs = entries
+        .map((entry) => {
+          if (!entry.date) return null;
+          const targetEntry = byDate.get(addDaysIso(entry.date, lag));
+          return targetEntry ? [getValue(entry), targetEntry.dayIndex] : null;
+        })
+        .filter((pair) => pair && Number.isFinite(pair[0]) && Number.isFinite(pair[1]));
+
+      if (pairs.length < 3) return [`dayPlus${lag}`, { r: null, n: pairs.length, note: "Недостаточно точек" }];
+      if (new Set(pairs.map(([x]) => x)).size < 2) return [`dayPlus${lag}`, { r: null, n: pairs.length, note: "Значение не менялось" }];
+      return [`dayPlus${lag}`, { r: round(pearson(pairs), 3), n: pairs.length }];
+    })
+  );
+}
+
+function addDaysIso(date, days) {
+  const shifted = new Date(`${date}T00:00:00Z`);
+  shifted.setUTCDate(shifted.getUTCDate() + days);
+  return shifted.toISOString().slice(0, 10);
+}
+
+function hasFilledText(value) {
+  const text = String(value || "").trim().toLowerCase();
+  return Boolean(text && !["нет", "нд", "no", "n/a", "-"].includes(text));
 }
 
 function pearson(pairs) {
@@ -627,6 +663,7 @@ async function askLlm(question, analytics) {
     instructions: [
       "Ты аналитик дневника самочувствия. Отвечай на основе рассчитанной статистики, а не пересказывай строки таблицы.",
       "Если вопрос про связь факторов, обязательно используй корреляции r, размер выборки n, сравнение средних или тренд из analytics.",
+      "Если вопрос про влияние встреч, событий или поездок на последующие дни, смотри laggedCorrelationsWithDayIndex: dayPlus0, dayPlus1 и dayPlus2.",
       "Не выводи JSON, Markdown-таблицы, заголовки с #, списки со звездочками и блоки кода.",
       "Пиши обычным русским текстом, короткими абзацами. Допустимы строки вида '1. ...', '2. ...'.",
       "Не ставь диагнозы, не назначай лечение, не советуй менять дозировки.",

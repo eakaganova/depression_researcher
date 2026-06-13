@@ -684,6 +684,36 @@ button:hover {
   font-size: 12px;
 }
 
+.lag-correlation-list {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #f0dde5;
+}
+
+.lag-correlation-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.lag-correlation-row span {
+  font-weight: 800;
+}
+
+.lag-correlation-row strong {
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.lag-correlation-row small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .correlation-score {
   grid-row: span 2;
   min-width: 88px;

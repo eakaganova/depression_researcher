@@ -518,13 +518,17 @@ function renderCustomCorrelation(rows) {
   }
 
   const selectedField = customCorrelationFields.find((field) => field.key === correlationSelectEl.value) || customCorrelationFields[0];
-  const result = calculateCorrelation(rows, (row) => row.energy, selectedField.getValue);
+  const laggedResults = calculateLaggedCorrelations(rows, (row) => row.energy, selectedField.getValue);
+  const result = laggedResults[0].result;
 
   if (result.r === null) {
     customCorrelationResultEl.innerHTML = `
       <div class="correlation-score muted">-</div>
       <p>${result.note || "Корреляцию пока нельзя посчитать."}</p>
       <small>Нужно хотя бы 3 дня, где заполнены и энергия, и выбранный параметр.</small>
+      <div class="lag-correlation-list">
+        ${laggedResults.map((item) => renderLagCorrelationRow(item)).join("")}
+      </div>
     `;
     return;
   }
@@ -533,7 +537,58 @@ function renderCustomCorrelation(rows) {
     <div class="correlation-score ${result.r >= 0 ? "positive" : "negative"}">r=${result.r.toFixed(2)}</div>
     <p>${describeCustomCorrelation(selectedField.label, result)}</p>
     <small>${selectedField.binary ? "Параметр считается как 1/0." : "Считается линейная корреляция Пирсона."} Точек данных: ${result.n}.</small>
+    <div class="lag-correlation-list">
+      ${laggedResults.map((item) => renderLagCorrelationRow(item)).join("")}
+    </div>
   `;
+}
+
+function calculateLaggedCorrelations(rows, getTarget, getFactor) {
+  const byDate = new Map(rows.filter((row) => row.date).map((row) => [row.date, row]));
+  return [0, 1, 2].map((lag) => {
+    const pairs = rows
+      .map((row) => {
+        if (!row.date) return null;
+        const targetRow = byDate.get(addDaysIso(row.date, lag));
+        return targetRow ? [getTarget(targetRow), getFactor(row)] : null;
+      })
+      .filter(Boolean);
+    return {
+      lag,
+      result: calculateCorrelationPairs(pairs)
+    };
+  });
+}
+
+function calculateCorrelationPairs(pairs) {
+  const validPairs = pairs.filter(([first, second]) => Number.isFinite(first) && Number.isFinite(second));
+  if (validPairs.length < 3) return { r: null, n: validPairs.length, note: "мало данных" };
+  if (new Set(validPairs.map((pair) => pair[1])).size < 2) {
+    return { r: null, n: validPairs.length, note: "значение не менялось" };
+  }
+
+  const meanFirst = validPairs.reduce((sum, pair) => sum + pair[0], 0) / validPairs.length;
+  const meanSecond = validPairs.reduce((sum, pair) => sum + pair[1], 0) / validPairs.length;
+  let numerator = 0;
+  let firstSquares = 0;
+  let secondSquares = 0;
+  validPairs.forEach(([first, second]) => {
+    const firstDelta = first - meanFirst;
+    const secondDelta = second - meanSecond;
+    numerator += firstDelta * secondDelta;
+    firstSquares += firstDelta ** 2;
+    secondSquares += secondDelta ** 2;
+  });
+  const denominator = Math.sqrt(firstSquares * secondSquares);
+  return denominator ? { r: numerator / denominator, n: validPairs.length } : { r: null, n: validPairs.length, note: "нет вариации" };
+}
+
+function renderLagCorrelationRow({ lag, result }) {
+  const label = lag === 0 ? "в этот день" : lag === 1 ? "на следующий день" : "через 2 дня";
+  if (result.r === null) {
+    return `<div class="lag-correlation-row"><span>${label}</span><small>${result.note}, n=${result.n}</small></div>`;
+  }
+  return `<div class="lag-correlation-row"><span>${label}</span><strong>r=${result.r.toFixed(2)}</strong><small>n=${result.n}</small></div>`;
 }
 
 function describeCustomCorrelation(label, result) {
@@ -597,28 +652,7 @@ function renderSleepInsight(rows, today) {
 }
 
 function calculateCorrelation(rows, getFirst, getSecond) {
-  const pairs = rows
-    .map((row) => [getFirst(row), getSecond(row)])
-    .filter(([first, second]) => Number.isFinite(first) && Number.isFinite(second));
-  if (pairs.length < 3) return { r: null, n: pairs.length, note: "мало данных" };
-  if (new Set(pairs.map((pair) => pair[1])).size < 2) {
-    return { r: null, n: pairs.length, note: "значение не менялось" };
-  }
-
-  const meanFirst = pairs.reduce((sum, pair) => sum + pair[0], 0) / pairs.length;
-  const meanSecond = pairs.reduce((sum, pair) => sum + pair[1], 0) / pairs.length;
-  let numerator = 0;
-  let firstSquares = 0;
-  let secondSquares = 0;
-  pairs.forEach(([first, second]) => {
-    const firstDelta = first - meanFirst;
-    const secondDelta = second - meanSecond;
-    numerator += firstDelta * secondDelta;
-    firstSquares += firstDelta ** 2;
-    secondSquares += secondDelta ** 2;
-  });
-  const denominator = Math.sqrt(firstSquares * secondSquares);
-  return denominator ? { r: numerator / denominator, n: pairs.length } : { r: null, n: pairs.length, note: "нет вариации" };
+  return calculateCorrelationPairs(rows.map((row) => [getFirst(row), getSecond(row)]));
 }
 
 function renderCorrelationRow(label, result) {
