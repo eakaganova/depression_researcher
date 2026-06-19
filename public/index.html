@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Дневник самочувствия</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/predictors.css" />
   </head>
   <body>
     <main class="shell">
@@ -109,6 +110,14 @@
         </section>
       </section>
 
+      <section class="panel predictor-panel">
+        <div class="panel-title">
+          <h2>Что предсказывает спад энергии</h2>
+          <span>временная валидация + регуляризованная модель</span>
+        </div>
+        <div id="predictorDashboard" class="predictor-dashboard"></div>
+      </section>
+
       <section class="panel chart-panel">
         <div class="panel-title">
           <div>
@@ -142,5 +151,6 @@
     </main>
 
     <script src="/app.js"></script>
+    <script src="/predictors.js"></script>
   </body>
 </html>
