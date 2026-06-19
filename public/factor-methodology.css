@@ -1,0 +1,52 @@
+.treatment-current-full {
+  margin-top: 0;
+}
+
+.treatment-current-full .medications {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.factor-methodology {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .62);
+}
+
+.factor-methodology summary {
+  padding: 13px 15px;
+  color: var(--accent-strong);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.factor-methodology summary::marker {
+  color: var(--accent);
+}
+
+.factor-methodology-body {
+  padding: 0 15px 15px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.factor-methodology-body p {
+  margin: 10px 0 0;
+}
+
+.factor-methodology-body p:first-child {
+  margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  .treatment-current-full .medications {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .treatment-current-full .medications {
+    grid-template-columns: 1fr;
+  }
+}
