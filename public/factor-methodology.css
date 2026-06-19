@@ -39,6 +39,11 @@
   margin-top: 0;
 }
 
+.report-action {
+  width: 100%;
+  margin: 14px 0 10px;
+}
+
 @media (max-width: 720px) {
   .treatment-current-full .medications {
     grid-template-columns: repeat(2, minmax(0, 1fr));
