@@ -9,94 +9,30 @@
   </head>
   <body>
     <main class="shell">
-      <header class="masthead">
-        <div>
-          <p class="eyebrow">Личная аналитика</p>
-          <h1>Дневник самочувствия</h1>
-        </div>
-        <button id="reportButton" type="button">Сформировать отчет</button>
-      </header>
-
+      <header class="masthead"><div><p class="eyebrow">Личная аналитика</p><h1>Дневник самочувствия</h1></div><button id="reportButton" type="button">Сформировать отчет</button></header>
       <section class="summary" aria-label="Средние показатели">
         <article class="metric"><span>Энергия</span><strong id="energy">-</strong><small>стремимся к 5-6 баллам</small></article>
         <article class="metric"><span>Радость</span><strong id="joy">-</strong><small>стремимся к 5-6 баллам</small></article>
         <article class="metric"><span>Интерес</span><strong id="interest">-</strong><small>стремимся к 5-6 баллам</small></article>
         <article class="metric"><span>Индекс дня</span><strong id="dayIndex">-</strong><small>стремимся к 5-6 баллам</small></article>
       </section>
-
       <section class="top-grid">
-        <section class="panel ask-panel">
-          <div class="panel-title"><h2>Вопрос по данным</h2><span>расчеты + LLM</span></div>
-          <form id="askForm" class="ask-form">
-            <textarea id="questionInput" rows="3" placeholder="Например: что сильнее всего связано с индексом дня?"></textarea>
-            <button id="askButton" type="submit">Спросить</button>
-          </form>
-          <pre id="answer">Здесь появится аналитический ответ по данным из таблицы.</pre>
-        </section>
-        <section class="panel">
-          <div class="panel-title"><h2>Сон и лекарства</h2><span id="sourceLabel">-</span></div>
-          <div id="medications" class="medications"></div>
-        </section>
+        <section class="panel ask-panel"><div class="panel-title"><h2>Вопрос по данным</h2><span>расчеты + LLM</span></div><form id="askForm" class="ask-form"><textarea id="questionInput" rows="3" placeholder="Например: что сильнее всего связано с индексом дня?"></textarea><button id="askButton" type="submit">Спросить</button></form><pre id="answer">Здесь появится аналитический ответ по данным из таблицы.</pre></section>
+        <section class="panel"><div class="panel-title"><h2>Сон и лекарства</h2><span id="sourceLabel">-</span></div><div id="medications" class="medications"></div></section>
       </section>
-
-      <section class="panel monthly-panel">
-        <div class="panel-title"><h2>Средний уровень энергии по месяцам</h2><span>целевая зона 5-6</span></div>
-        <div id="monthlyChart" class="monthly-chart" aria-label="Средний уровень энергии по месяцам"></div>
-      </section>
-
-      <section class="panel weekly-panel">
-        <div class="panel-title"><h2>Колебания энергии по неделям</h2><span>диапазон и среднее</span></div>
-        <div class="weekly-layout">
-          <div id="weeklyChart" class="weekly-chart" aria-label="Колебания энергии по неделям"></div>
-          <div id="weeklyExplanation" class="weekly-explanation"></div>
-        </div>
-      </section>
-
+      <section class="panel monthly-panel"><div class="panel-title"><h2>Средний уровень энергии по месяцам</h2><span>целевая зона 5-6</span></div><div id="monthlyChart" class="monthly-chart" aria-label="Средний уровень энергии по месяцам"></div></section>
+      <section class="panel weekly-panel"><div class="panel-title"><h2>Колебания энергии по неделям</h2><span>диапазон и среднее</span></div><div class="weekly-layout"><div id="weeklyChart" class="weekly-chart" aria-label="Колебания энергии по неделям"></div><div id="weeklyExplanation" class="weekly-explanation"></div></div></section>
       <section class="insight-grid">
-        <section class="panel insight-panel custom-correlation-panel">
-          <div class="panel-title"><h2>Корреляция энергии</h2><span>выбор любого параметра</span></div>
-          <div class="correlation-picker"><label for="correlationSelect">Параметр</label><select id="correlationSelect"></select></div>
-          <div id="customCorrelationResult" class="custom-correlation-result"></div>
-        </section>
-        <section class="panel insight-panel">
-          <div class="panel-title"><h2>Энергия и препараты</h2><span>корреляция за весь период</span></div>
-          <div id="energyMedicationInsight" class="insight-content"></div>
-        </section>
-        <section class="panel insight-panel">
-          <div class="panel-title"><h2>Сон и препараты</h2><span>текущий месяц + весь период</span></div>
-          <div id="sleepInsight" class="insight-content"></div>
-        </section>
+        <section class="panel insight-panel custom-correlation-panel"><div class="panel-title"><h2>Корреляция энергии</h2><span>выбор любого параметра</span></div><div class="correlation-picker"><label for="correlationSelect">Параметр</label><select id="correlationSelect"></select></div><div id="customCorrelationResult" class="custom-correlation-result"></div></section>
+        <section class="panel insight-panel"><div class="panel-title"><h2>Энергия и препараты</h2><span>корреляция за весь период</span></div><div id="energyMedicationInsight" class="insight-content"></div></section>
+        <section class="panel insight-panel"><div class="panel-title"><h2>Сон и препараты</h2><span>текущий месяц + весь период</span></div><div id="sleepInsight" class="insight-content"></div></section>
       </section>
-
-      <section class="panel predictor-panel">
-        <div class="panel-title"><h2>Что предсказывает спад энергии</h2><span>временная валидация + регуляризованная модель</span></div>
-        <div id="predictorDashboard" class="predictor-dashboard"></div>
-      </section>
-
-      <section class="panel chart-panel">
-        <div class="panel-title">
-          <div><h2>Динамика отдельных показателей</h2><span id="periodLabel">-</span></div>
-          <div class="line-legend" aria-label="Показатели графика">
-            <span><i class="legend-energy"></i>Энергия</span><span><i class="legend-joy"></i>Радость</span><span><i class="legend-interest"></i>Интерес</span>
-          </div>
-        </div>
-        <div id="chart" class="line-chart" aria-label="График энергии, радости и интереса"></div>
-      </section>
-
-      <section class="panel report-panel">
-        <div class="panel-title"><h2>Отчет для врача</h2><span>без медицинских назначений</span></div>
-        <pre id="report">Нажми кнопку сверху, чтобы собрать краткий отчет.</pre>
-      </section>
-
-      <section class="panel comparison-panel">
-        <div class="panel-title"><h2 id="comparisonTitle">Что изменилось в состоянии с января?</h2><span id="comparisonPeriod">-</span></div>
-        <div id="comparisonCards" class="comparison-cards"></div>
-      </section>
+      <section class="panel predictor-panel"><div class="panel-title"><h2>Что связано с последующим спадом энергии</h2><span>модель для малой выборки</span></div><div id="predictorDashboard" class="predictor-dashboard"></div></section>
+      <section class="panel chart-panel"><div class="panel-title"><div><h2>Динамика отдельных показателей</h2><span id="periodLabel">-</span></div><div class="line-legend" aria-label="Показатели графика"><span><i class="legend-energy"></i>Энергия</span><span><i class="legend-joy"></i>Радость</span><span><i class="legend-interest"></i>Интерес</span></div></div><div id="chart" class="line-chart" aria-label="График энергии, радости и интереса"></div></section>
+      <section class="panel report-panel"><div class="panel-title"><h2>Отчет для врача</h2><span>без медицинских назначений</span></div><pre id="report">Нажми кнопку сверху, чтобы собрать краткий отчет.</pre></section>
+      <section class="panel comparison-panel"><div class="panel-title"><h2 id="comparisonTitle">Что изменилось в состоянии с января?</h2><span id="comparisonPeriod">-</span></div><div id="comparisonCards" class="comparison-cards"></div></section>
     </main>
-
     <script src="/app.js"></script>
-    <script src="/predictor-runtime.js"></script>
-    <script src="/predictors.js"></script>
-    <script src="/predictor-sample-fixes.js"></script>
+    <script src="/small-sample-predictors.js"></script>
   </body>
 </html>
