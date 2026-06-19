@@ -9,30 +9,138 @@
   </head>
   <body>
     <main class="shell">
-      <header class="masthead"><div><p class="eyebrow">Личная аналитика</p><h1>Дневник самочувствия</h1></div><button id="reportButton" type="button">Сформировать отчет</button></header>
-      <section class="summary" aria-label="Средние показатели">
-        <article class="metric"><span>Энергия</span><strong id="energy">-</strong><small>стремимся к 5-6 баллам</small></article>
-        <article class="metric"><span>Радость</span><strong id="joy">-</strong><small>стремимся к 5-6 баллам</small></article>
-        <article class="metric"><span>Интерес</span><strong id="interest">-</strong><small>стремимся к 5-6 баллам</small></article>
-        <article class="metric"><span>Индекс дня</span><strong id="dayIndex">-</strong><small>стремимся к 5-6 баллам</small></article>
+      <header class="masthead clinical-masthead">
+        <div>
+          <p class="eyebrow">Сводка к приёму</p>
+          <h1>Дневник самочувствия</h1>
+          <p class="masthead-note">Лечение, динамика энергии и возможные факторы изменений</p>
+        </div>
+        <button id="reportButton" type="button">Сводка для врача</button>
+      </header>
+
+      <nav class="section-nav" aria-label="Разделы страницы">
+        <a href="#treatment">1. Лечение</a>
+        <a href="#condition">2. Энергия</a>
+        <a href="#factors">3. Важные факторы</a>
+        <a href="#details">4. Подробности</a>
+      </nav>
+
+      <section id="treatment" class="clinical-section">
+        <header class="section-heading">
+          <div><span>Шаг 1</span><h2>Лечение</h2></div>
+          <p>Текущая схема и последние изменения дозировок</p>
+        </header>
+
+        <div class="treatment-grid">
+          <section class="panel treatment-current">
+            <div class="panel-title"><h2>Текущая схема</h2><span id="sourceLabel">-</span></div>
+            <div id="medications" class="medications"></div>
+          </section>
+          <section class="panel treatment-history">
+            <div class="panel-title"><h2>Последние изменения</h2><span id="treatmentPeriod">-</span></div>
+            <div id="treatmentChanges" class="treatment-changes"></div>
+          </section>
+        </div>
       </section>
-      <section class="top-grid">
-        <section class="panel ask-panel"><div class="panel-title"><h2>Вопрос по данным</h2><span>расчеты + LLM</span></div><form id="askForm" class="ask-form"><textarea id="questionInput" rows="3" placeholder="Например: что сильнее всего связано с индексом дня?"></textarea><button id="askButton" type="submit">Спросить</button></form><pre id="answer">Здесь появится аналитический ответ по данным из таблицы.</pre></section>
-        <section class="panel"><div class="panel-title"><h2>Сон и лекарства</h2><span id="sourceLabel">-</span></div><div id="medications" class="medications"></div></section>
+
+      <section id="condition" class="clinical-section">
+        <header class="section-heading">
+          <div><span>Шаг 2</span><h2>Общее состояние и энергия</h2></div>
+          <p>Сначала общий уровень, затем динамика по дням</p>
+        </header>
+
+        <section class="summary" aria-label="Средние показатели">
+          <article class="metric"><span>Энергия</span><strong id="energy">-</strong><small>среднее за весь период</small></article>
+          <article class="metric"><span>Радость</span><strong id="joy">-</strong><small>дополнительный показатель</small></article>
+          <article class="metric"><span>Интерес</span><strong id="interest">-</strong><small>дополнительный показатель</small></article>
+          <article class="metric"><span>Индекс дня</span><strong id="dayIndex">-</strong><small>сводный показатель</small></article>
+        </section>
+
+        <section class="panel chart-panel primary-chart">
+          <div class="panel-title">
+            <div><h2>Динамика состояния по дням</h2><span id="periodLabel">-</span></div>
+            <div class="line-legend" aria-label="Показатели графика">
+              <span><i class="legend-energy"></i>Энергия</span>
+              <span><i class="legend-joy"></i>Радость</span>
+              <span><i class="legend-interest"></i>Интерес</span>
+            </div>
+          </div>
+          <div id="chart" class="line-chart" aria-label="График энергии, радости и интереса"></div>
+        </section>
+
+        <section class="panel comparison-panel">
+          <div class="panel-title"><h2 id="comparisonTitle">Как изменилось состояние?</h2><span id="comparisonPeriod">-</span></div>
+          <div id="comparisonCards" class="comparison-cards"></div>
+        </section>
       </section>
-      <section class="panel monthly-panel"><div class="panel-title"><h2>Средний уровень энергии по месяцам</h2><span>целевая зона 5-6</span></div><div id="monthlyChart" class="monthly-chart" aria-label="Средний уровень энергии по месяцам"></div></section>
-      <section class="panel weekly-panel"><div class="panel-title"><h2>Колебания энергии по неделям</h2><span>диапазон и среднее</span></div><div class="weekly-layout"><div id="weeklyChart" class="weekly-chart" aria-label="Колебания энергии по неделям"></div><div id="weeklyExplanation" class="weekly-explanation"></div></div></section>
-      <section class="insight-grid">
-        <section class="panel insight-panel custom-correlation-panel"><div class="panel-title"><h2>Корреляция энергии</h2><span>выбор любого параметра</span></div><div class="correlation-picker"><label for="correlationSelect">Параметр</label><select id="correlationSelect"></select></div><div id="customCorrelationResult" class="custom-correlation-result"></div></section>
-        <section class="panel insight-panel"><div class="panel-title"><h2>Энергия и препараты</h2><span>корреляция за весь период</span></div><div id="energyMedicationInsight" class="insight-content"></div></section>
-        <section class="panel insight-panel"><div class="panel-title"><h2>Сон и препараты</h2><span>текущий месяц + весь период</span></div><div id="sleepInsight" class="insight-content"></div></section>
+
+      <section id="factors" class="clinical-section">
+        <header class="section-heading">
+          <div><span>Шаг 3</span><h2>Важные факторы</h2></div>
+          <p>События и состояния, после которых энергия отклонялась от ожидаемой</p>
+        </header>
+
+        <section class="panel predictor-panel">
+          <div class="panel-title"><h2>Что связано с последующим спадом энергии</h2><span>модель для малой выборки</span></div>
+          <div id="predictorDashboard" class="predictor-dashboard"></div>
+        </section>
+
+        <section class="insight-grid factor-details">
+          <section class="panel insight-panel custom-correlation-panel">
+            <div class="panel-title"><h2>Проверить отдельный фактор</h2><span>тот же день и следующие два дня</span></div>
+            <div class="correlation-picker"><label for="correlationSelect">Параметр</label><select id="correlationSelect"></select></div>
+            <div id="customCorrelationResult" class="custom-correlation-result"></div>
+          </section>
+          <section class="panel insight-panel">
+            <div class="panel-title"><h2>Сон и препараты</h2><span>текущий месяц + весь период</span></div>
+            <div id="sleepInsight" class="insight-content"></div>
+          </section>
+          <section class="panel insight-panel">
+            <div class="panel-title"><h2>Энергия и препараты</h2><span>дополнительная корреляция</span></div>
+            <div id="energyMedicationInsight" class="insight-content"></div>
+          </section>
+        </section>
       </section>
-      <section class="panel predictor-panel"><div class="panel-title"><h2>Что связано с последующим спадом энергии</h2><span>модель для малой выборки</span></div><div id="predictorDashboard" class="predictor-dashboard"></div></section>
-      <section class="panel chart-panel"><div class="panel-title"><div><h2>Динамика отдельных показателей</h2><span id="periodLabel">-</span></div><div class="line-legend" aria-label="Показатели графика"><span><i class="legend-energy"></i>Энергия</span><span><i class="legend-joy"></i>Радость</span><span><i class="legend-interest"></i>Интерес</span></div></div><div id="chart" class="line-chart" aria-label="График энергии, радости и интереса"></div></section>
-      <section class="panel report-panel"><div class="panel-title"><h2>Отчет для врача</h2><span>без медицинских назначений</span></div><pre id="report">Нажми кнопку сверху, чтобы собрать краткий отчет.</pre></section>
-      <section class="panel comparison-panel"><div class="panel-title"><h2 id="comparisonTitle">Что изменилось в состоянии с января?</h2><span id="comparisonPeriod">-</span></div><div id="comparisonCards" class="comparison-cards"></div></section>
+
+      <section id="details" class="clinical-section secondary-section">
+        <header class="section-heading">
+          <div><span>Шаг 4</span><h2>Подробная аналитика</h2></div>
+          <p>Дополнительные графики и инструменты для уточняющих вопросов</p>
+        </header>
+
+        <section class="panel monthly-panel">
+          <div class="panel-title"><h2>Средний уровень энергии по месяцам</h2><span>долгосрочная динамика</span></div>
+          <div id="monthlyChart" class="monthly-chart" aria-label="Средний уровень энергии по месяцам"></div>
+        </section>
+
+        <section class="panel weekly-panel">
+          <div class="panel-title"><h2>Колебания энергии по неделям</h2><span>диапазон и среднее</span></div>
+          <div class="weekly-layout">
+            <div id="weeklyChart" class="weekly-chart" aria-label="Колебания энергии по неделям"></div>
+            <div id="weeklyExplanation" class="weekly-explanation"></div>
+          </div>
+        </section>
+
+        <section class="top-grid assistant-tools">
+          <section class="panel ask-panel">
+            <div class="panel-title"><h2>Уточняющий вопрос по данным</h2><span>расчёты + LLM</span></div>
+            <form id="askForm" class="ask-form">
+              <textarea id="questionInput" rows="3" placeholder="Например: какие факторы чаще предшествовали снижению энергии?"></textarea>
+              <button id="askButton" type="submit">Спросить</button>
+            </form>
+            <pre id="answer">Здесь появится аналитический ответ по данным из таблицы.</pre>
+          </section>
+
+          <section class="panel report-panel">
+            <div class="panel-title"><h2>Текстовая сводка</h2><span>без медицинских назначений</span></div>
+            <pre id="report">Нажми «Сводка для врача» сверху, чтобы собрать краткий отчёт.</pre>
+          </section>
+        </section>
+      </section>
     </main>
+
     <script src="/app.js"></script>
+    <script src="/treatment-summary.js"></script>
     <script src="/small-sample-predictors.js"></script>
   </body>
 </html>
