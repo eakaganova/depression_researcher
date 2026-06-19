@@ -17,11 +17,8 @@
       <nav class="section-nav" aria-label="Разделы страницы"><a href="#treatment">1. Лечение</a><a href="#condition">2. Энергия</a><a href="#factors">3. Важные факторы</a><a href="#details">4. Подробности</a></nav>
 
       <section id="treatment" class="clinical-section">
-        <header class="section-heading"><div><span>Шаг 1</span><h2>Лечение</h2></div><p>Текущая схема и последние изменения дозировок</p></header>
-        <div class="treatment-grid">
-          <section class="panel treatment-current"><div class="panel-title"><h2>Текущая схема</h2><span id="sourceLabel">-</span></div><div id="medications" class="medications"></div></section>
-          <section class="panel treatment-history"><div class="panel-title"><h2>Последние изменения</h2><span id="treatmentPeriod">-</span></div><div id="treatmentChanges" class="treatment-changes"></div></section>
-        </div>
+        <header class="section-heading"><div><span>Шаг 1</span><h2>Лечение</h2></div><p>Текущая схема препаратов</p></header>
+        <section class="panel treatment-current treatment-current-full"><div class="panel-title"><h2>Текущая схема</h2><span id="sourceLabel">-</span></div><div id="medications" class="medications"></div></section>
       </section>
 
       <section id="condition" class="clinical-section">
@@ -33,12 +30,24 @@
           <article class="metric"><span>Индекс дня</span><strong id="dayIndex">-</strong><small>сводный показатель</small></article>
         </section>
         <section class="panel chart-panel primary-chart"><div class="panel-title"><div><h2>Динамика состояния по дням</h2><span id="periodLabel">-</span></div><div class="line-legend" aria-label="Показатели графика"><span><i class="legend-energy"></i>Энергия</span><span><i class="legend-joy"></i>Радость</span><span><i class="legend-interest"></i>Интерес</span></div></div><div id="chart" class="line-chart" aria-label="График энергии, радости и интереса"></div></section>
-        <section class="panel comparison-panel"><div class="panel-title"><h2 id="comparisonTitle">Как изменилось состояние?</h2><span id="comparisonPeriod">-</span></div><div id="comparisonCards" class="comparison-cards"></div></section>
+        <div hidden aria-hidden="true"><span id="comparisonTitle"></span><span id="comparisonPeriod"></span><div id="comparisonCards"></div></div>
       </section>
 
       <section id="factors" class="clinical-section">
-        <header class="section-heading"><div><span>Шаг 3</span><h2>Важные факторы</h2></div><p>События и состояния, после которых энергия отклонялась от ожидаемой</p></header>
-        <section class="panel predictor-panel"><div class="panel-title"><h2>Что связано с последующим спадом энергии</h2><span>модель для малой выборки</span></div><div id="predictorDashboard" class="predictor-dashboard"></div></section>
+        <header class="section-heading"><div><span>Шаг 3</span><h2>Важные факторы</h2></div><p>Что происходило перед днями, когда энергии становилось меньше</p></header>
+        <section class="panel predictor-panel">
+          <div class="panel-title"><h2>Что могло быть связано со снижением энергии</h2><span>анализ личного дневника</span></div>
+          <div id="predictorDashboard" class="predictor-dashboard"></div>
+          <details class="factor-methodology">
+            <summary>Как считается этот анализ</summary>
+            <div class="factor-methodology-body">
+              <p>Энергия естественным образом меняется день ото дня. Поэтому сначала система оценивает, какой уровень энергии можно было ожидать на следующий день, исходя из текущего уровня и динамики последних трёх дней.</p>
+              <p>Затем она проверяет, была ли энергия после конкретного события — например, поездки в офис, встречи или проблем со сном — ниже или выше этого ожидаемого уровня. Так обычный спад не приписывается событию автоматически.</p>
+              <p>Если событие встречалось редко, его эффект осторожно уменьшается в сторону нуля. Чем больше похожих наблюдений накапливается, тем меньше эта поправка влияет на результат.</p>
+              <p><strong>Важно:</strong> расчёт показывает повторяющуюся связь во времени, но не доказывает, что событие стало причиной изменения энергии. Особенно осторожно нужно интерпретировать изменения лекарств.</p>
+            </div>
+          </details>
+        </section>
         <section class="insight-grid factor-details">
           <section class="panel insight-panel custom-correlation-panel"><div class="panel-title"><h2>Проверить отдельный фактор</h2><span>тот же день и следующие два дня</span></div><div class="correlation-picker"><label for="correlationSelect">Параметр</label><select id="correlationSelect"></select></div><div id="customCorrelationResult" class="custom-correlation-result"></div></section>
           <section class="panel insight-panel"><div class="panel-title"><h2>Сон и препараты</h2><span>текущий месяц + весь период</span></div><div id="sleepInsight" class="insight-content"></div></section>
@@ -57,7 +66,7 @@
       </section>
     </main>
     <script src="/app.js"></script>
-    <script src="/treatment-summary.js"></script>
     <script src="/small-sample-predictors.js"></script>
+    <script src="/factor-language.js"></script>
   </body>
 </html>
