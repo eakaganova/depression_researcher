@@ -13,7 +13,6 @@
     <main class="shell">
       <header class="masthead clinical-masthead">
         <div><p class="eyebrow">Сводка к приёму</p><h1>Дневник самочувствия</h1><p class="masthead-note">Лечение, динамика энергии и возможные факторы изменений</p></div>
-        <button id="reportButton" type="button">Сводка для врача</button>
       </header>
       <nav class="section-nav" aria-label="Разделы страницы"><a href="#treatment">1. Лечение</a><a href="#condition">2. Энергия</a><a href="#factors">3. Важные факторы</a><a href="#details">4. Подробности</a></nav>
 
@@ -62,7 +61,7 @@
         <section class="panel weekly-panel"><div class="panel-title"><h2>Колебания энергии по неделям</h2><span>диапазон и среднее</span></div><div class="weekly-layout"><div id="weeklyChart" class="weekly-chart" aria-label="Колебания энергии по неделям"></div><div id="weeklyExplanation" class="weekly-explanation"></div></div></section>
         <section class="top-grid assistant-tools">
           <section class="panel ask-panel"><div class="panel-title"><h2>Уточняющий вопрос по данным</h2><span>расчёты + LLM</span></div><form id="askForm" class="ask-form"><textarea id="questionInput" rows="3" placeholder="Например: какие факторы чаще предшествовали снижению энергии?"></textarea><button id="askButton" type="submit">Спросить</button></form><pre id="answer">Здесь появится аналитический ответ по данным из таблицы.</pre></section>
-          <section class="panel report-panel"><div class="panel-title"><h2>Текстовая сводка</h2><span>без медицинских назначений</span></div><pre id="report">Нажми «Сводка для врача» сверху, чтобы собрать краткий отчёт.</pre></section>
+          <section class="panel report-panel"><div class="panel-title"><h2>Текстовая сводка</h2><span>без медицинских назначений</span></div><button id="reportButton" class="report-action" type="button">Сформировать сводку для врача</button><pre id="report">Нажми кнопку выше, чтобы собрать краткий отчёт.</pre></section>
         </section>
       </section>
     </main>
