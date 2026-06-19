@@ -11,12 +11,9 @@ npm start
 
 После запуска сайт доступен на `http://localhost:3000`.
 
-## Deploy на Render
+## Deploy
 
-1. Создать GitHub-репозиторий и загрузить эти файлы.
-2. В Render выбрать New Web Service.
-3. Подключить репозиторий.
-4. Render возьмет настройки из `render.yaml`.
+Проект должен запускаться как Node.js Web Service командой `npm start`, а не как статический сайт.
 
 ## Подключение Google Sheets
 
@@ -25,14 +22,17 @@ npm start
 1. Создать service account в Google Cloud.
 2. Создать JSON-ключ для service account.
 3. Открыть Google Таблицу и выдать доступ email service account как читателю.
-4. В Render добавить переменные окружения:
+4. В сервисе деплоя добавить переменные окружения:
 
 ```text
 GOOGLE_SHEET_ID=...
-GOOGLE_SHEET_RANGE=A:K
+GOOGLE_SHEET_RANGE=НазваниеЛиста!A:S
 GOOGLE_SERVICE_ACCOUNT_EMAIL=...
 GOOGLE_PRIVATE_KEY=...
+APP_TIME_ZONE=Europe/Moscow
 ```
+
+Текущая таблица занимает столбцы `A:S`. Значение `A:Q` обрезает столбцы «Литий» и «Эутирокс».
 
 `GOOGLE_PRIVATE_KEY` вставляется целиком, вместе со строками `-----BEGIN PRIVATE KEY-----` и `-----END PRIVATE KEY-----`.
 
@@ -42,11 +42,11 @@ GOOGLE_PRIVATE_KEY=...
 GOOGLE_SHEET_CSV_URL=...
 ```
 
-Если переменные не заданы, сервис показывает демо-данные.
+Если одновременно задан `GOOGLE_SHEET_CSV_URL`, он имеет приоритет над Google Sheets API. Если ни один источник не настроен полностью, сервис показывает демо-данные.
 
 ## Подключение LLM через Yandex Cloud
 
-В Render добавь переменные окружения:
+В сервисе деплоя добавь переменные окружения:
 
 ```text
 YANDEX_CLOUD_FOLDER=...
